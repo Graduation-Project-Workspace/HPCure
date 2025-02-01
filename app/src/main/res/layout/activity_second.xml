@@ -6,4 +6,15 @@
     android:orientation="vertical"
     >
 
+    <TextView
+        android:id="@+id/txtUserMessage"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize= "30sp"
+        android:textStyle="bold"
+        android:textColor= "#F44336"
+        android:layout_margin="20dp"
+        android:textAlignment="center"
+        android:text="TextView" />
+
 </LinearLayout>

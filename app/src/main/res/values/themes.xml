@@ -6,4 +6,20 @@
     </style>
 
     <style name="Theme.DemoApp" parent="Base.Theme.DemoApp" />
+
+    <style name="Theme.DemoApp.Splash" parent="Theme.Material3.DayNight">
+        <!-- Background color -->
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+
+        <!-- Animated splash icon -->
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash</item>
+
+        <!-- Duration of the icon animation -->
+        <item name="windowSplashScreenAnimationDuration">1000</item>
+
+        <!-- Post splash screen theme -->
+        <item name="postSplashScreenTheme">@style/Theme.DemoApp</item>
+    </style>
+
+
 </resources>

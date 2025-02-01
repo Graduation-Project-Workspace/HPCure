@@ -24,12 +24,27 @@ class MainActivity : AppCompatActivity() {
         var btnSendMsgToNextActivity = findViewById<Button>(R.id.btnSendMsgToNextActivity)
         btnSendMsgToNextActivity.setOnClickListener{
             val message: String = findViewById<EditText>(R.id.etUserMessage).text.toString()
-            Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
 
-            // intent (navigation logic)
-            val intent = Intent(this , SecondActivity::class.java)
+            val intent = Intent(this , SecondActivity::class.java) // specify the target activity
             startActivity(intent)
 
+            intent.putExtra("user_message", message)
+            startActivity(intent)
+
+
+            // 1 - Explicit Intent (you know the target activity)
+
+            // 2 - Implicit (do not know the target activity)
+            // share button => dialog box => select app to share => implicit intent
+        }
+        var btnShareToOtherApps = findViewById<Button>(R.id.btnShareToOtherApps)
+        btnShareToOtherApps.setOnClickListener{
+            val message: String = findViewById<EditText>(R.id.etUserMessage).text.toString()
+            val intent = Intent()  // we do not know the target activity
+            intent.action = Intent.ACTION_SEND  // action to perform
+            intent.putExtra(Intent.EXTRA_TEXT, message) // key value pair (key is predefined for action_send)
+            intent.type = "text/plain" // type of data
+            startActivity(Intent.createChooser(intent, "Please select app: "))
 
         }
     }
