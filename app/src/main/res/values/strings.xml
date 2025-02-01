@@ -43,4 +43,17 @@
         libero vel nunc consequat, quis tincidunt nisl eleifend. Cras bibendum enim a justo luctus
         vestibulum. Fusce dictum libero quis erat maximus, vitae volutpat diam dignissim.
     </string>
+
+
+    <string name = "image1_description">
+        Welcome to Tumor Track", "A powerful AI-driven tool to analyze MRI scans…
+    </string>
+
+    <string name = "image2_description">
+        Fast &amp; Accurate Tumor Analysis", "Upload an MRI, AI detects tumors…
+    </string>
+
+    <string name = "image3_description">
+        Works Anywhere, Anytime!", "AI works offline, ideal for hospitals with limited internet.
+    </string>
 </resources>
