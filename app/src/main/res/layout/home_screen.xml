@@ -1,0 +1,83 @@
+<RelativeLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/home_screen"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#071E22">
+
+    <RelativeLayout
+        android:id="@+id/header"
+        android:layout_width="match_parent"
+        android:layout_height="100dp"
+        android:background="#3B3F40"
+        android:elevation="4dp">
+
+        <ImageView
+            android:id="@+id/profile_icon"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="16dp"
+            android:layout_centerVertical="true"
+            android:src="@drawable/ic_home_screen"
+            android:contentDescription="Profile Icon"/>
+
+        <TextView
+            android:id="@+id/tumor_track"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerInParent="true"
+            android:text="Tumor Track"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:textColor="#FFFFFF"/>
+    </RelativeLayout>
+
+    <TextView
+        android:id="@+id/select_patient_mri"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/header"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="30dp"
+        android:text="Select Patient MRI"
+        android:textSize="20sp"
+        android:textColor="#FFFFFF"
+        android:textStyle="bold"/>
+
+    <RelativeLayout
+        android:id="@+id/upload_container"
+        android:layout_width="250dp"
+        android:layout_height="300dp"
+        android:layout_below="@id/select_patient_mri"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="20dp"
+        android:background="@drawable/ic_upload"
+        android:padding="20dp"
+        android:elevation="4dp"
+        android:clickable="true"
+        android:focusable="true"
+        android:onClick="onUploadClick"
+        android:contentDescription="Upload Container">
+
+        <ImageView
+            android:id="@+id/uploaded_image"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"
+            android:visibility="gone"/>
+
+    </RelativeLayout>
+
+    <Button
+        android:id="@+id/process_button"
+        android:layout_width="200dp"
+        android:layout_height="50dp"
+        android:layout_below="@id/upload_container"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="20dp"
+        android:text="Upload MRI"
+        android:textSize="18sp"
+        android:textColor="#FFFFFF"
+        android:onClick="onUploadProcessClick"/>
+
+</RelativeLayout>

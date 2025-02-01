@@ -34,12 +34,12 @@ class OnboardingActivity : AppCompatActivity() {
             if (viewPager.currentItem < onboardingScreens.size - 1) {
                 viewPager.currentItem += 1
             } else {
-                startActivity(Intent(this, MainActivity::class.java))
+                startActivity(Intent(this, HomeScreen::class.java))
                 finish()
             }
         }
         skipButton.setOnClickListener {
-            startActivity(Intent(this, MainActivity::class.java))
+            startActivity(Intent(this, HomeScreen::class.java))
             finish()
         }
     }

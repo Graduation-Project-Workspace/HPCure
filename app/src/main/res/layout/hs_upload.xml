@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#071E22">
+
+    <!-- Header -->
+    <RelativeLayout
+        android:id="@+id/header"
+        android:layout_width="match_parent"
+        android:layout_height="80dp"
+        android:background="#3B3F40"
+        android:elevation="4dp">
+
+        <ImageView
+            android:id="@+id/profile_icon"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="16dp"
+            android:layout_centerVertical="true"
+            android:src="@drawable/ic_home_screen"
+            android:contentDescription="Profile Icon"/>
+
+        <TextView
+            android:id="@+id/tumor_track"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerInParent="true"
+            android:text="Tumor Track"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:textColor="#FFFFFF"/>
+    </RelativeLayout>
+
+    <!-- Patient Name -->
+    <TextView
+        android:id="@+id/patient_name"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/header"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="12dp"
+        android:text="Patient"
+        android:textSize="20sp"
+        android:textColor="#FFFFFF"/>
+
+    <!-- Image Slider Container -->
+    <RelativeLayout
+        android:id="@+id/image_slider"
+        android:layout_width="match_parent"
+        android:layout_height="350dp"
+        android:layout_below="@id/patient_name"
+        android:layout_marginTop="12dp"
+        android:layout_centerHorizontal="true">
+
+        <!-- Background Rectangle -->
+        <View
+            android:id="@+id/rectangle_3"
+            android:layout_width="320dp"
+            android:layout_height="320dp"
+            android:layout_centerInParent="true"
+            android:background="#B8BEBF"/>
+
+        <!-- MRI Image -->
+        <ImageView
+            android:id="@+id/mri_image"
+            android:layout_width="280dp"
+            android:layout_height="280dp"
+            android:layout_centerInParent="true"
+            android:scaleType="fitCenter"/>
+
+        <!-- Image Count -->
+        <TextView
+            android:id="@+id/image_count"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentTop="true"
+            android:layout_centerHorizontal="true"
+            android:layout_marginTop="12dp"
+            android:text="56/114"
+            android:textSize="18sp"
+            android:textColor="#FFFFFF"/>
+
+        <!-- Left Arrow -->
+        <ImageButton
+            android:id="@+id/prev_image"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_alignBottom="@id/rectangle_3"
+            android:layout_alignStart="@id/rectangle_3"
+            android:layout_marginStart="8dp"
+            android:layout_marginBottom="8dp"
+            android:background="@drawable/ic_left_arrow"
+            android:contentDescription="Previous Image"/>
+
+        <!-- Right Arrow -->
+        <ImageButton
+            android:id="@+id/next_image"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_alignBottom="@id/rectangle_3"
+            android:layout_alignEnd="@id/rectangle_3"
+            android:layout_marginEnd="8dp"
+            android:layout_marginBottom="8dp"
+            android:background="@drawable/ic_right_arrow"
+            android:contentDescription="Next Image"/>
+    </RelativeLayout>
+
+    <!-- Alpha Cut Section -->
+    <LinearLayout
+        android:id="@+id/alpha_cut_section"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/image_slider"
+        android:layout_marginTop="12dp"
+        android:orientation="horizontal"
+        android:padding="16dp"
+        android:gravity="center_vertical"
+        android:background="#3B3F40"
+        android:elevation="4dp">
+
+        <TextView
+            android:id="@+id/alpha_cut_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="ALPHA CUT"
+            android:textSize="16sp"
+            android:textColor="#FFFFFF"
+            android:layout_marginEnd="8dp"/>
+
+        <SeekBar
+            android:id="@+id/alpha_cut_slider"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:max="100"
+            android:progress="80"/>
+
+        <TextView
+            android:id="@+id/alpha_cut_value"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="80.74%"
+            android:textSize="16sp"
+            android:textColor="#FFFFFF"
+            android:layout_marginStart="8dp"/>
+    </LinearLayout>
+
+    <!-- Calculate Volume Button -->
+    <Button
+        android:id="@+id/calculate_volume"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/alpha_cut_section"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="12dp"
+        android:text="Calculate Volume"
+        android:textSize="18sp"
+        android:textColor="#000000"
+        android:backgroundTint="#FFFFFF"
+        android:padding="12dp"/>
+</RelativeLayout>
