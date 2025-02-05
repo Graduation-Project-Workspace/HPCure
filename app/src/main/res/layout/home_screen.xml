@@ -52,18 +52,19 @@
         android:layout_centerHorizontal="true"
         android:layout_marginTop="20dp"
         android:background="@drawable/ic_upload"
-        android:padding="20dp"
+        android:padding="8dp"
         android:elevation="4dp"
         android:clickable="true"
         android:focusable="true"
-        android:onClick="onUploadClick"
-        android:contentDescription="Upload Container">
+        android:onClick="onUploadClick">
 
         <ImageView
             android:id="@+id/uploaded_image"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:scaleType="centerCrop"
+            android:scaleType="fitCenter"
+            android:adjustViewBounds="true"
+            android:padding="4dp"
             android:visibility="gone"/>
 
     </RelativeLayout>
@@ -77,7 +78,9 @@
         android:layout_marginTop="20dp"
         android:text="Upload MRI"
         android:textSize="18sp"
-        android:textColor="#FFFFFF"
+        android:textColor="#000000"
+        android:background="@drawable/rounded_background"
+        android:backgroundTint="#FFFFFF"
         android:onClick="onUploadProcessClick"/>
 
 </RelativeLayout>

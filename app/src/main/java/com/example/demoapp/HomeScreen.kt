@@ -1,6 +1,7 @@
 package com.example.demoapp
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -10,6 +11,12 @@ import android.widget.ImageView
 import android.widget.RelativeLayout
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.FileOutputStream
 
 class HomeScreen : AppCompatActivity() {
 
@@ -33,15 +40,21 @@ class HomeScreen : AppCompatActivity() {
 
         // Set click listener for process button
         processButton.setOnClickListener {
-            val intent = Intent(this, HomeScreenUpload::class.java)
-            intent.putExtra("image_uri", selectedImageUri?.toString())
-            startActivity(intent)
+            if (selectedImageUri != null) {
+                val intent = Intent(this, HomeScreenUpload::class.java)
+                intent.putExtra("image_uri", selectedImageUri?.toString())
+                startActivity(intent)
+            } else {
+                showToast("Please select a DICOM file first")
+            }
         }
     }
 
     private fun openFilePicker() {
-        val intent = Intent(Intent.ACTION_GET_CONTENT)
-        intent.type = "image/*"
+        val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
+            type = "*/*"
+            addCategory(Intent.CATEGORY_OPENABLE)
+        }
         startActivityForResult(intent, PICK_FILE_REQUEST_CODE)
     }
 
@@ -49,29 +62,69 @@ class HomeScreen : AppCompatActivity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == PICK_FILE_REQUEST_CODE && resultCode == Activity.RESULT_OK) {
             data?.data?.let { uri ->
-                handleFileUpload(uri)
+                if (isDicomFile(uri)) {
+                    handleDicomFile(uri)
+                } else {
+                    showErrorDialog("Please select a DICOM file (.dcm)")
+                }
             }
         }
     }
 
-    private fun handleFileUpload(uri: Uri) {
-        uploadedImage.setImageURI(uri)
-        uploadedImage.visibility = ImageView.VISIBLE
+    private fun isDicomFile(uri: Uri): Boolean {
+        val fileName = getFileName(uri).lowercase()
+        return fileName.endsWith(".dcm") || fileName.endsWith(".dicom")
+    }
 
-        selectedImageUri = uri
+    private fun handleDicomFile(uri: Uri) {
+        CoroutineScope(Dispatchers.Main).launch {
+            try {
+                val bitmap = withContext(Dispatchers.IO) {
+                    val inputStream = contentResolver.openInputStream(uri)
+                    val tempFile = File.createTempFile("dicom", null, cacheDir)
 
-        val fileName = getFileName(uri)
-        Toast.makeText(this, "Selected file: $fileName", Toast.LENGTH_SHORT).show()
+                    FileOutputStream(tempFile).use { output ->
+                        inputStream?.copyTo(output)
+                    }
+
+                    try {
+                        val bitmap = DicomUtils.convertDicomToBitmap(tempFile)
+                        tempFile.delete()
+                        bitmap
+                    } catch (e: Exception) {
+                        tempFile.delete()
+                        throw Exception("Invalid DICOM file format: ${e.message}")
+                    }
+                }
+
+                // Update UI
+                uploadedImage.setImageBitmap(bitmap)
+                uploadedImage.visibility = ImageView.VISIBLE
+                selectedImageUri = uri
+                showToast("DICOM file loaded successfully")
+
+            } catch (e: Exception) {
+                e.printStackTrace()
+                showErrorDialog("Error processing DICOM file: ${e.message}")
+            }
+        }
+    }
+
+    private fun showErrorDialog(message: String) {
+        ErrorDialog(this).show(message)
+    }
+
+    private fun showToast(message: String) {
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
 
     private fun getFileName(uri: Uri): String {
         var fileName = ""
-        val cursor = contentResolver.query(uri, null, null, null, null)
-        cursor?.use {
-            if (it.moveToFirst()) {
-                val nameIndex = it.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+        contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
                 if (nameIndex != -1) {
-                    fileName = it.getString(nameIndex)
+                    fileName = cursor.getString(nameIndex)
                 }
             }
         }
