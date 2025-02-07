@@ -1,0 +1,142 @@
+<RelativeLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#071E22">
+
+    <!-- Header -->
+    <RelativeLayout
+        android:id="@+id/header"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:background="#1E2324"
+        android:elevation="4dp">
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_marginStart="16dp"
+            android:layout_centerVertical="true"
+            android:src="@drawable/ic_home_screen"
+            android:contentDescription="Profile Icon" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerInParent="true"
+            android:text="Tumor Track"
+            android:textSize="20sp"
+            android:textColor="#FFFFFF" />
+    </RelativeLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_centerInParent="true"
+        android:orientation="vertical"
+        android:gravity="center">
+
+        <!-- Patient Results -->
+        <TextView
+            android:id="@+id/patient_name"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="Results"
+            android:textSize="18sp"
+            android:textColor="#FFFFFF" />
+
+        <!-- Tumor Volume -->
+        <TextView
+            android:id="@+id/tumor_volume"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="Tumor Volume: 00 mm³"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"/>
+
+        <!-- Image Container -->
+        <RelativeLayout
+            android:id="@+id/image_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:layout_marginHorizontal="16dp"
+            android:layout_marginBottom="16dp">
+
+            <!-- Main Container Background -->
+            <View
+                android:id="@+id/rectangle_3"
+                android:layout_width="match_parent"
+                android:layout_height="500dp"
+                android:background="@drawable/image_container_background"/>
+
+            <!-- Image Count -->
+            <TextView
+                android:id="@+id/image_count"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0/0"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:textColor="#000000"
+                android:layout_centerHorizontal="true"
+                android:layout_marginTop="12dp"/>
+
+            <!-- Navigation Area Container -->
+            <RelativeLayout
+                android:id="@+id/navigation_area"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_alignBottom="@id/rectangle_3"
+                android:layout_marginBottom="8dp">
+
+                <ImageButton
+                    android:id="@+id/prev_image"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:layout_alignParentStart="true"
+                    android:layout_marginStart="16dp"
+                    android:background="@android:color/transparent"
+                    app:srcCompat="@drawable/ic_left_arrow_vector"
+                    app:tint="#000000" />
+
+                <ImageButton
+                    android:id="@+id/next_image"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:layout_alignParentEnd="true"
+                    android:layout_marginEnd="16dp"
+                    android:background="@android:color/transparent"
+                    app:srcCompat="@drawable/ic_right_arrow_vector"
+                    app:tint="#000000" />
+            </RelativeLayout>
+
+            <!-- MRI Image -->
+            <ImageView
+                android:id="@+id/mri_image"
+                android:layout_width="match_parent"
+                android:layout_height="400dp"
+                android:layout_below="@id/image_count"
+                android:layout_above="@id/navigation_area"
+                android:layout_marginHorizontal="16dp"
+                android:layout_marginTop="12dp"
+                android:layout_marginBottom="8dp"
+                android:scaleType="fitCenter"
+                android:adjustViewBounds="true"/>
+
+        </RelativeLayout>
+
+        <!-- Download Button -->
+        <Button
+            android:id="@+id/download_button"
+            android:layout_width="220dp"
+            android:layout_height="40dp"
+            android:layout_marginTop="16dp"
+            android:background="@drawable/button_background"
+            android:text="DOWNLOAD"
+            android:textColor="#000000" />
+    </LinearLayout>
+</RelativeLayout>

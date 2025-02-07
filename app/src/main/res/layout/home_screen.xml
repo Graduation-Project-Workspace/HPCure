@@ -32,53 +32,53 @@
             android:textColor="#FFFFFF"/>
     </RelativeLayout>
 
-    <TextView
-        android:id="@+id/select_patient_mri"
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_below="@id/header"
-        android:layout_centerHorizontal="true"
-        android:layout_marginTop="30dp"
-        android:text="Select Patient MRI"
-        android:textSize="20sp"
-        android:textColor="#FFFFFF"
-        android:textStyle="bold"/>
+        android:layout_centerInParent="true"
+        android:orientation="vertical"
+        android:gravity="center">
 
-    <RelativeLayout
-        android:id="@+id/upload_container"
-        android:layout_width="250dp"
-        android:layout_height="300dp"
-        android:layout_below="@id/select_patient_mri"
-        android:layout_centerHorizontal="true"
-        android:layout_marginTop="20dp"
-        android:background="@drawable/ic_upload"
-        android:padding="8dp"
-        android:elevation="4dp"
-        android:clickable="true"
-        android:focusable="true">
+        <TextView
+            android:id="@+id/select_patient_mri"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="30dp"
+            android:text="Select Patient MRI"
+            android:textSize="20sp"
+            android:textColor="#FFFFFF"
+            android:textStyle="bold"/>
 
-        <ImageView
-            android:id="@+id/uploaded_image"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:scaleType="fitCenter"
-            android:adjustViewBounds="true"
-            android:padding="4dp"
-            android:visibility="gone"/>
+        <RelativeLayout
+            android:id="@+id/upload_container"
+            android:layout_width="250dp"
+            android:layout_height="300dp"
+            android:layout_marginTop="20dp"
+            android:background="@drawable/ic_upload"
+            android:padding="8dp"
+            android:elevation="4dp"
+            android:clickable="true"
+            android:focusable="true">
 
-    </RelativeLayout>
+            <ImageView
+                android:id="@+id/uploaded_image"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="fitCenter"
+                android:adjustViewBounds="true"
+                android:padding="4dp"
+                android:visibility="gone"/>
+        </RelativeLayout>
 
-    <Button
-        android:id="@+id/process_button"
-        android:layout_width="200dp"
-        android:layout_height="50dp"
-        android:layout_below="@id/upload_container"
-        android:layout_centerHorizontal="true"
-        android:layout_marginTop="20dp"
-        android:text="Upload MRI"
-        android:textSize="18sp"
-        android:textColor="#000000"
-        android:background="@drawable/rounded_background"
-        android:backgroundTint="#FFFFFF" />
-
+        <Button
+            android:id="@+id/process_button"
+            android:layout_width="200dp"
+            android:layout_height="50dp"
+            android:layout_marginTop="20dp"
+            android:text="Upload MRI"
+            android:textSize="18sp"
+            android:textColor="#000000"
+            android:background="@drawable/rounded_background"
+            android:backgroundTint="#FFFFFF" />
+    </LinearLayout>
 </RelativeLayout>
