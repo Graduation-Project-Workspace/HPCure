@@ -1,202 +1,209 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout
+<FrameLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/fragment_container"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="#071E22">
+    android:layout_height="match_parent">
 
-    <!-- Header -->
     <RelativeLayout
-        android:id="@+id/header"
-        android:layout_width="match_parent"
-        android:layout_height="56dp"
-        android:background="#1E2324"
-        android:elevation="4dp">
-
-        <ImageView
-            android:id="@+id/profile_icon"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:layout_marginStart="16dp"
-            android:layout_centerVertical="true"
-            android:src="@drawable/ic_home_screen"
-            android:contentDescription="Profile Icon" />
-
-        <TextView
-            android:id="@+id/tumor_track"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_centerInParent="true"
-            android:text="Tumor Track"
-            android:textSize="20sp"
-            android:textColor="#FFFFFF" />
-    </RelativeLayout>
-
-    <!-- Content Container -->
-    <RelativeLayout
+        android:id="@+id/main_content"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_below="@id/header">
+        android:background="#071E22">
 
-        <!-- Patient Name -->
-        <TextView
-            android:id="@+id/patient_name"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_alignParentTop="true"
-            android:layout_centerHorizontal="true"
-            android:layout_marginTop="24dp"
-            android:text="Patient"
-            android:textSize="18sp"
-            android:textColor="#FFFFFF" />
-
-        <!-- Image Container -->
+        <!-- Header -->
         <RelativeLayout
-            android:id="@+id/image_slider"
+            android:id="@+id/header"
             android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_below="@id/patient_name"
-            android:layout_above="@id/alpha_cut_container"
-            android:layout_marginTop="24dp"
-            android:layout_marginBottom="24dp"
-            android:layout_marginHorizontal="16dp">
+            android:layout_height="56dp"
+            android:background="#1E2324"
+            android:elevation="4dp">
 
-            <!-- Main Container Background -->
-            <View
-                android:id="@+id/rectangle_3"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:background="@drawable/image_container_background"/>
+            <ImageView
+                android:id="@+id/profile_icon"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_marginStart="16dp"
+                android:layout_centerVertical="true"
+                android:src="@drawable/ic_home_screen"
+                android:contentDescription="Profile Icon" />
 
-            <!-- Image Count -->
             <TextView
-                android:id="@+id/image_count"
+                android:id="@+id/tumor_track"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="1/1"
-                android:textSize="16sp"
-                android:textColor="#000000"
-                android:layout_centerHorizontal="true"
-                android:layout_marginTop="12dp"/>
-
-            <!-- Image View -->
-            <ImageView
-                android:id="@+id/mri_image"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:layout_below="@id/image_count"
-                android:layout_above="@id/navigation_area"
-                android:layout_marginHorizontal="16dp"
-                android:layout_marginVertical="12dp"
-                android:scaleType="fitCenter"
-                android:adjustViewBounds="true"/>
-
-            <!-- Navigation Area Container -->
-            <RelativeLayout
-                android:id="@+id/navigation_area"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_alignParentBottom="true"
-                android:layout_marginBottom="8dp">
-
-                <ImageButton
-                    android:id="@+id/prev_image"
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
-                    android:layout_alignParentStart="true"
-                    android:layout_marginStart="16dp"
-                    android:background="@android:color/transparent"
-                    app:srcCompat="@drawable/ic_left_arrow_vector"
-                    app:tint="#000000" />
-
-                <ImageButton
-                    android:id="@+id/next_image"
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
-                    android:layout_alignParentEnd="true"
-                    android:layout_marginEnd="16dp"
-                    android:background="@android:color/transparent"
-                    app:srcCompat="@drawable/ic_right_arrow_vector"
-                    app:tint="#000000" />
-            </RelativeLayout>
+                android:layout_centerInParent="true"
+                android:text="Tumor Track"
+                android:textSize="20sp"
+                android:textColor="#FFFFFF" />
         </RelativeLayout>
 
-        <!-- Alpha Cut Section -->
-        <LinearLayout
-            android:id="@+id/alpha_cut_container"
+        <!-- Content Container -->
+        <RelativeLayout
             android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:layout_above="@id/calculate_volume"
-            android:layout_marginBottom="24dp"
-            android:layout_marginHorizontal="16dp"
-            android:background="@drawable/alpha_cut_container_background"
-            android:padding="0dp"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
+            android:layout_height="match_parent"
+            android:layout_below="@id/header">
 
+            <!-- Patient Name -->
             <TextView
+                android:id="@+id/patient_name"
                 android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:text="ALPHA CUT"
+                android:layout_height="wrap_content"
+                android:layout_alignParentTop="true"
+                android:layout_centerHorizontal="true"
+                android:layout_marginTop="24dp"
+                android:text="Patient"
+                android:textSize="18sp"
+                android:textColor="#FFFFFF" />
+
+            <!-- Image Container -->
+            <RelativeLayout
+                android:id="@+id/image_slider"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_below="@id/patient_name"
+                android:layout_above="@id/alpha_cut_container"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="24dp"
+                android:layout_marginHorizontal="16dp">
+
+                <!-- Main Container Background -->
+                <View
+                    android:id="@+id/rectangle_3"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@drawable/image_container_background"/>
+
+                <!-- Image Count -->
+                <TextView
+                    android:id="@+id/image_count"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="1/1"
+                    android:textSize="16sp"
+                    android:textColor="#000000"
+                    android:layout_centerHorizontal="true"
+                    android:layout_marginTop="12dp"/>
+
+                <!-- Image View -->
+                <ImageView
+                    android:id="@+id/mri_image"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:layout_below="@id/image_count"
+                    android:layout_above="@id/navigation_area"
+                    android:layout_marginHorizontal="16dp"
+                    android:layout_marginVertical="12dp"
+                    android:scaleType="fitCenter"
+                    android:adjustViewBounds="true"/>
+
+                <!-- Navigation Area Container -->
+                <RelativeLayout
+                    android:id="@+id/navigation_area"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_alignParentBottom="true"
+                    android:layout_marginBottom="8dp">
+
+                    <ImageButton
+                        android:id="@+id/prev_image"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:layout_alignParentStart="true"
+                        android:layout_marginStart="16dp"
+                        android:background="@android:color/transparent"
+                        app:srcCompat="@drawable/ic_left_arrow_vector"
+                        app:tint="#000000" />
+
+                    <ImageButton
+                        android:id="@+id/next_image"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:layout_alignParentEnd="true"
+                        android:layout_marginEnd="16dp"
+                        android:background="@android:color/transparent"
+                        app:srcCompat="@drawable/ic_right_arrow_vector"
+                        app:tint="#000000" />
+                </RelativeLayout>
+            </RelativeLayout>
+
+            <!-- Alpha Cut Section -->
+            <LinearLayout
+                android:id="@+id/alpha_cut_container"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_above="@id/calculate_volume"
+                android:layout_marginBottom="24dp"
+                android:layout_marginHorizontal="16dp"
+                android:background="@drawable/alpha_cut_container_background"
+                android:padding="0dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:text="ALPHA CUT"
+                    android:textColor="#000000"
+                    android:textSize="14sp"
+                    android:gravity="center"
+                    android:paddingHorizontal="16dp"
+                    android:layout_margin="0dp"
+                    android:background="@drawable/alpha_cut_button_background"/>
+
+                <SeekBar
+                    android:id="@+id/alpha_cut_slider"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="16dp"
+                    android:layout_marginEnd="8dp"
+                    android:minHeight="6dp"
+                    android:maxHeight="6dp"
+                    android:progressTint="#FFFFFF"
+                    android:thumbTint="#FFFFFF"
+                    android:progressBackgroundTint="#80FFFFFF"/>
+
+                <TextView
+                    android:id="@+id/alpha_cut_value"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="#FFFFFF"
+                    android:textSize="14sp"
+                    android:minWidth="70dp"
+                    android:gravity="end"
+                    android:layout_marginEnd="16dp"/>
+            </LinearLayout>
+
+            <!-- Calculate Volume Button -->
+            <Button
+                android:id="@+id/calculate_volume"
+                android:layout_width="220dp"
+                android:layout_height="40dp"
+                android:layout_alignParentBottom="true"
+                android:layout_centerHorizontal="true"
+                android:layout_marginBottom="32dp"
+                android:text="Calculate Volume"
                 android:textColor="#000000"
-                android:textSize="14sp"
-                android:gravity="center"
-                android:paddingHorizontal="16dp"
-                android:layout_margin="0dp"
-                android:background="@drawable/alpha_cut_button_background"/>
+                android:textStyle="bold"
+                android:background="@drawable/button_background"/>
+        </RelativeLayout>
 
-            <SeekBar
-                android:id="@+id/alpha_cut_slider"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginStart="16dp"
-                android:layout_marginEnd="8dp"
-                android:minHeight="6dp"
-                android:maxHeight="6dp"
-                android:progressTint="#FFFFFF"
-                android:thumbTint="#FFFFFF"
-                android:progressBackgroundTint="#80FFFFFF"/>
+        <!-- Loading Overlay -->
+        <RelativeLayout
+            android:id="@+id/loading_overlay"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone"
+            android:background="#BF071E22">
 
-            <TextView
-                android:id="@+id/alpha_cut_value"
+            <ProgressBar
+                android:id="@+id/loading_progress"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textColor="#FFFFFF"
-                android:textSize="14sp"
-                android:minWidth="70dp"
-                android:gravity="end"
-                android:layout_marginEnd="16dp"/>
-        </LinearLayout>
-
-        <!-- Calculate Volume Button -->
-        <Button
-            android:id="@+id/calculate_volume"
-            android:layout_width="220dp"
-            android:layout_height="40dp"
-            android:layout_alignParentBottom="true"
-            android:layout_centerHorizontal="true"
-            android:layout_marginBottom="32dp"
-            android:text="Calculate Volume"
-            android:textColor="#000000"
-            android:textStyle="bold"
-            android:background="@drawable/button_background"/>
+                android:layout_centerInParent="true"
+                android:indeterminateTint="#FFFFFF"/>
+        </RelativeLayout>
     </RelativeLayout>
-
-    <!-- Loading Overlay -->
-    <RelativeLayout
-        android:id="@+id/loading_overlay"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:visibility="gone"
-        android:background="#BF071E22">
-
-        <ProgressBar
-            android:id="@+id/loading_progress"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_centerInParent="true"
-            android:indeterminateTint="#FFFFFF"/>
-    </RelativeLayout>
-</RelativeLayout>
+</FrameLayout>

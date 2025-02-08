@@ -17,15 +17,11 @@ class HomeScreenUpload : AppCompatActivity() {
     private var currentAlphaCutValue: Float = 50.00f
 
     private lateinit var loadingOverlay: RelativeLayout
-    private lateinit var resultsScreen: View
     private lateinit var calculateButton: Button
-
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.hs_upload)
-
-        resultsScreen = layoutInflater.inflate(R.layout.results_screen, null)
 
         initializeViews()
         setupImageNavigation()
@@ -43,8 +39,6 @@ class HomeScreenUpload : AppCompatActivity() {
         prevImage = findViewById(R.id.prev_image)
         nextImage = findViewById(R.id.next_image)
         calculateButton = findViewById(R.id.calculate_volume)
-
-        // Initialize loading overlay views
         loadingOverlay = findViewById(R.id.loading_overlay)
 
         updateDisplay()
@@ -56,13 +50,12 @@ class HomeScreenUpload : AppCompatActivity() {
             // Simulate processing delay of 2 seconds
             Handler(Looper.getMainLooper()).postDelayed({
                 hideLoadingState()
-                showResultsState()
+                navigateToResults()
             }, 2000)
         }
     }
 
     private fun showLoadingState() {
-        // Show loading overlay with animation
         loadingOverlay.alpha = 0f
         loadingOverlay.visibility = View.VISIBLE
         loadingOverlay.animate()
@@ -70,7 +63,6 @@ class HomeScreenUpload : AppCompatActivity() {
             .setDuration(200)
             .start()
 
-        // Disable calculate button
         calculateButton.isEnabled = false
     }
 
@@ -85,15 +77,15 @@ class HomeScreenUpload : AppCompatActivity() {
             .start()
     }
 
-    private fun showResultsState() {
-        setContentView(resultsScreen)
-        setupResultsScreen()
-    }
+    private fun navigateToResults() {
+        val fragmentManager = supportFragmentManager
+        val transaction = fragmentManager.beginTransaction()
 
-    private fun setupResultsScreen() {
-        resultsScreen.findViewById<Button>(R.id.download_button).setOnClickListener {
-            Toast.makeText(this, "Downloading...", Toast.LENGTH_SHORT).show()
-        }
+        // Create and add HomeScreenResults fragment
+        val resultsFragment = HomeScreenResults.newInstance()
+        transaction.replace(R.id.fragment_container, resultsFragment)
+        transaction.addToBackStack(null)
+        transaction.commit()
     }
 
     private fun loadCurrentImage() {
