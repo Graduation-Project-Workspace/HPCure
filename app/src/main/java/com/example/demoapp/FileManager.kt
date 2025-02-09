@@ -1,11 +1,14 @@
 package com.example.demoapp
 
 import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
 import android.provider.DocumentsContract
+import android.util.Log
 import java.io.File
 import java.io.FileOutputStream
+import java.io.IOException
 
 object FileManager {
     private var dicomFiles = mutableListOf<File>()
@@ -24,48 +27,61 @@ object FileManager {
         currentIndex = 0
 
         return try {
-            val docUri = DocumentsContract.buildDocumentUriUsingTree(uri,
-                DocumentsContract.getTreeDocumentId(uri))
+            // Take persistent permissions
+            val takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                    Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            context.contentResolver.takePersistableUriPermission(uri, takeFlags)
 
-            processDirectory(context, docUri)
-            dicomFiles.isNotEmpty() // Return true only if valid DICOM files were found
+            val docId = DocumentsContract.getTreeDocumentId(uri)
+            val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(uri, docId)
+
+            processDirectory(context, uri, childrenUri)
+            dicomFiles.isNotEmpty()
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e("FileManager", "Error loading directory", e)
             false
         }
     }
 
-    private fun processDirectory(context: Context, uri: Uri) {
-        val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(uri,
-            DocumentsContract.getDocumentId(uri))
+    private fun processDirectory(context: Context, treeUri: Uri, childrenUri: Uri) {
+        Log.d("FileManager", "Processing directory: $childrenUri")
 
         context.contentResolver.query(
             childrenUri,
             arrayOf(
                 DocumentsContract.Document.COLUMN_DOCUMENT_ID,
                 DocumentsContract.Document.COLUMN_DISPLAY_NAME,
-                DocumentsContract.Document.COLUMN_MIME_TYPE,
-                DocumentsContract.Document.COLUMN_SIZE
+                DocumentsContract.Document.COLUMN_MIME_TYPE
             ),
             null,
             null,
             null
         )?.use { cursor ->
+            val docIdIndex = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
+            val nameIndex = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+
             while (cursor.moveToNext()) {
                 try {
-                    val docId = cursor.getString(0)
-                    val name = cursor.getString(1)
+                    val docId = cursor.getString(docIdIndex)
+                    val name = cursor.getString(nameIndex)
+
+                    Log.d("FileManager", "Found file: $name with docId: $docId")
+
                     if (isDicomFile(name)) {
-                        val docUri = DocumentsContract.buildDocumentUriUsingTree(uri, docId)
-                        val tempFile = createTempFile(context, docUri, name)
+                        val documentUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, docId)
+                        Log.d("FileManager", "Processing DICOM file: $name with URI: $documentUri")
+
+                        val tempFile = createTempFile(context, documentUri, name)
                         if (isValidDicomFile(tempFile)) {
                             dicomFiles.add(tempFile)
+                            Log.d("FileManager", "Successfully added DICOM file: $name")
                         } else {
                             tempFile.delete()
+                            Log.w("FileManager", "Invalid DICOM file: $name")
                         }
                     }
                 } catch (e: Exception) {
-                    e.printStackTrace()
+                    Log.e("FileManager", "Error processing file", e)
                 }
             }
         }
@@ -78,22 +94,39 @@ object FileManager {
 
     private fun isValidDicomFile(file: File): Boolean {
         return try {
-            // Try to read DICOM attributes to verify it's a valid DICOM file
+            if (!file.exists() || file.length() == 0L || file.length() > 100 * 1024 * 1024) { // 100MB limit
+                return false
+            }
             DicomUtils.readDicomAttributes(file)
             true
         } catch (e: Exception) {
+            Log.e("FileManager", "Error validating DICOM file: ${file.name}", e)
             false
         }
     }
 
-    private fun createTempFile(context: Context, uri: Uri, name: String): File {
+    private fun createTempFile(context: Context, documentUri: Uri, name: String): File {
         val tempFile = File(cacheDir, name)
-        context.contentResolver.openInputStream(uri)?.use { input ->
-            FileOutputStream(tempFile).use { output ->
-                input.copyTo(output)
+        try {
+            context.contentResolver.openInputStream(documentUri)?.use { input ->
+                FileOutputStream(tempFile).use { output ->
+                    val buffer = ByteArray(8192)
+                    var read: Int
+                    while (input.read(buffer).also { read = it } != -1) {
+                        output.write(buffer, 0, read)
+                    }
+                }
+            } ?: throw IOException("Could not open input stream for $name")
+
+            Log.d("FileManager", "Successfully created temp file: $name")
+            return tempFile
+        } catch (e: Exception) {
+            Log.e("FileManager", "Error creating temp file: $name", e)
+            if (tempFile.exists()) {
+                tempFile.delete()
             }
+            throw e
         }
-        return tempFile
     }
 
     fun getCurrentFile(): File? {
@@ -104,15 +137,16 @@ object FileManager {
 
     fun getProcessedImage(context: Context, file: File): Bitmap? {
         return try {
-            // First verify it's a valid DICOM file
             if (!isValidDicomFile(file)) {
+                Log.e("FileManager", "Invalid DICOM file: ${file.name}")
                 throw Exception("Invalid DICOM file")
             }
 
+            System.gc() // Suggest garbage collection before processing large files
             val bitmap = DicomUtils.convertDicomToBitmap(file)
             bitmap
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e("FileManager", "Error processing image", e)
             null
         }
     }

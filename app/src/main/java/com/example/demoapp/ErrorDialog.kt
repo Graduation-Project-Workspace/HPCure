@@ -9,7 +9,7 @@ import android.view.Window
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.TextView
-
+import androidx.core.content.ContextCompat
 
 class ErrorDialog(private val context: Context) {
     fun show(message: String) {
@@ -20,16 +20,18 @@ class ErrorDialog(private val context: Context) {
         val view = LayoutInflater.from(context).inflate(R.layout.dialog_error, null)
 
         // Set the message
-        view.findViewById<TextView>(R.id.error_message).text = message
+        val messageView = view.findViewById<TextView>(R.id.error_message)
+        messageView.text = message
 
         // Set up the OK button
-        view.findViewById<Button>(R.id.ok_button).setOnClickListener {
+        val okButton = view.findViewById<Button>(R.id.ok_button)
+        okButton.setOnClickListener {
             dialog.dismiss()
         }
 
         dialog.setContentView(view)
 
-        // Set dialog width to match the layout width
+        // Set dialog width and properties
         dialog.window?.let { window ->
             // Set dim amount for background
             window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
