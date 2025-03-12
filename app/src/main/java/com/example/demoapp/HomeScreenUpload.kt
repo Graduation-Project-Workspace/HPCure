@@ -137,14 +137,6 @@ class HomeScreenUpload : AppCompatActivity() {
     }
 
     private fun navigateToResults() {
-        val fragmentManager = supportFragmentManager
-        val transaction = fragmentManager.beginTransaction()
-
-        // Create and add HomeScreenResults fragment
-        val resultsFragment = HomeScreenResults.newInstance()
-        transaction.replace(R.id.fragment_container, resultsFragment)
-        transaction.addToBackStack(null)
-        transaction.commit()
     }
 
     private fun loadCurrentImage() {
