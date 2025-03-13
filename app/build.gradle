@@ -19,7 +19,7 @@ android {
 
     buildTypes {
         release {
-            minifyEnabled false
+            minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
@@ -44,14 +44,15 @@ dependencies {
     implementation 'androidx.constraintlayout:constraintlayout:2.2.1'
     implementation 'androidx.navigation:navigation-fragment-ktx:2.8.8'
     implementation 'androidx.navigation:navigation-ui-ktx:2.8.8'
-    implementation 'com.squareup.gifencoder:gifencoder:0.10.0'
+    implementation 'org.tensorflow:tensorflow-lite:2.9.0'
+    implementation 'org.tensorflow:tensorflow-lite-gpu:2.9.0'
+    implementation 'org.tensorflow:tensorflow-lite-support:0.4.2'
     // DCM4CHE core libraries (using a more recent stable version)
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4") // Or latest version
     implementation 'org.dcm4che:dcm4che-core:5.22.6'
     implementation 'org.dcm4che:dcm4che-image:5.22.6'
     implementation 'org.dcm4che:dcm4che-imageio:5.22.6'
     implementation 'org.dcm4che:dcm4che-imageio-rle:5.22.6'
-    implementation 'com.google.ai.edge.litert:litert:+'
-    implementation 'com.google.ai.edge.litert:litert-gpu:+'
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.2.1'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.6.1'

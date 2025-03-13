@@ -4,72 +4,94 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Rect
 import android.os.Bundle
 import android.util.Log
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.viewpager.widget.PagerAdapter
+import androidx.viewpager.widget.ViewPager
+import kotlinx.coroutines.*
 import org.tensorflow.lite.Interpreter
 import java.io.DataInputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import kotlin.system.measureTimeMillis
 
 class HomeScreenResults : AppCompatActivity() {
 
     private lateinit var tflite: Interpreter
-    private lateinit var imageView: ImageView
+    private lateinit var viewPager: ViewPager
     private lateinit var predictionText: TextView
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val imageProcessingDispatcher = Dispatchers.Default.limitedParallelism(2)
     private val ROI = IntArray(4)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.results_screen)
 
-        // Find UI elements
-        imageView = findViewById(R.id.mriImageView)
+        viewPager = findViewById(R.id.sliceViewPager)
         predictionText = findViewById(R.id.predictionText)
 
-        // ROI values are passed to me
         ROI[0] = 108  // x_min
         ROI[1] = 136  // x_max
         ROI[2] = 251  // y_min
         ROI[3] = 294  // y_max
+        initializeTFLite()
+        viewPager.adapter = SlicePagerAdapter()
+        viewPager.addOnPageChangeListener(object : ViewPager.OnPageChangeListener {
+            override fun onPageScrolled(position: Int, positionOffset: Float, positionOffsetPixels: Int) {}
 
-        // Load the TFLite model
-        tflite = Interpreter(loadModelFile("breast_mri_model.tflite"))
+            override fun onPageSelected(position: Int) {
+                val sliceNumber = position + 52
+                val fileName = "Breast_MRI_002/image_slice_$sliceNumber.bin"
 
-        // Load and preprocess the image
-        val fullSlice = loadBinSlice("Breast_MRI_002/Breast_MRI_002_slice_72.bin")
-        val fullBitmap = convertSliceToBitmap(fullSlice)
-        val roiSlice = extractRoi(fullSlice, ROI)
-        val roiBitmap = convertSliceToBitmap(roiSlice)
-        val resizedRoiBitmap = Bitmap.createScaledBitmap(roiBitmap, 256, 256, true)
-        imageView.setImageBitmap(fullBitmap)  // Show full MRI image
 
-        val input = convertBitmapToByteBuffer(resizedRoiBitmap)
+                CoroutineScope(imageProcessingDispatcher).launch {
+                    var inferenceTime: Long = 0 // Declare inferenceTime variable
+                    try {
+                        val startTime = System.currentTimeMillis() // Alternative way to measure time
 
-        // Run inference
-        val output = Array(1) { FloatArray(2) } // (x, y) prediction
-        tflite.run(input, output)
+                        val fullSlice = loadBinSlice(fileName)
+                        val fullBitmap = convertSliceToBitmap(fullSlice)
+                        val roiSlice = extractRoi(fullSlice, ROI)
+                        val roiBitmap = convertSliceToBitmap(roiSlice)
+                        val resizedRoiBitmap = Bitmap.createScaledBitmap(roiBitmap, 256, 256, true)
+                        val input = convertBitmapToByteBuffer(resizedRoiBitmap)
 
-        // Convert prediction to ROI coordinates
-        val roiWidth = roiBitmap.width
-        val roiHeight = roiBitmap.height
-        val predX_roi = (output[0][0] * roiWidth).toInt()
-        val predY_roi = (output[0][1] * roiHeight).toInt()
+                        val output = Array(1) { FloatArray(2) }
+                        tflite.run(input, output)
 
-        // Convert ROI coordinates to full image coordinates
-        val predX_full = ROI[0] + predX_roi
-        val predY_full = ROI[2] + predY_roi
+                        val endTime = System.currentTimeMillis()
+                        inferenceTime = endTime - startTime // Calculate inference time
 
-        // Show prediction in TextView
-        predictionText.text = "Prediction: ($predX_full, $predY_full)"
-        Log.d("Prediction", "Predicted Coordinates: ($predX_full, $predY_full)")
+                        val roiWidth = roiBitmap.width
+                        val roiHeight = roiBitmap.height
+                        val predX_roi = (output[0][0] * roiWidth).toInt()
+                        val predY_roi = (output[0][1] * roiHeight).toInt()
+                        val predX_full = ROI[0] + predX_roi
+                        val predY_full = ROI[2] + predY_roi
 
-        // Draw prediction on full image
-        drawLabelOnPrediction(fullBitmap, predX_full, predY_full)
+                        val frameWithPrediction = drawLabelOnPrediction(fullBitmap, predX_full, predY_full, ROI)
+
+                        withContext(Dispatchers.Main) {
+                            predictionText.text = "Prediction for slice $sliceNumber: ($predX_full, $predY_full) - Inference time: $inferenceTime ms"
+                            (viewPager.adapter as SlicePagerAdapter).updateImage(position, frameWithPrediction)
+                        }
+                    } catch (e: Exception) {
+                        Log.e("HomeScreenResults", "Error processing slice: ${e.message}", e)
+                        withContext(Dispatchers.Main) {
+                            predictionText.text = "Error loading slice $sliceNumber: ${e.message}"
+                        }
+                    }
+                }
+            }
+
+            override fun onPageScrollStateChanged(state: Int) {}
+        })
     }
-
     private fun loadModelFile(modelName: String): ByteBuffer {
         val assetFileDescriptor = assets.openFd(modelName)
         val inputStream = assetFileDescriptor.createInputStream()
@@ -80,24 +102,29 @@ class HomeScreenResults : AppCompatActivity() {
             put(modelBuffer)
         }
     }
+    private fun initializeTFLite(){
+        val options = Interpreter.Options().apply{
+            // enable gpu if available
+            if(GpuDelegateHelper().isGpuDelegateAvailable){
+                addDelegate(GpuDelegateHelper().createGpuDelegate())
+            }
+            useNNAPI = true
+            numThreads = 8
+        }
+        tflite = Interpreter(loadModelFile("breast_mri_model.tflite"), options)
+    }
 
     private fun loadBinSlice(fileName: String): Array<DoubleArray> {
         val fileSize = assets.open(fileName).available()
         val buffer = ByteBuffer.allocate(fileSize)
-
-        // Read the entire file into the buffer
         assets.open(fileName).use { inputStream ->
             val dataInputStream = DataInputStream(inputStream)
             dataInputStream.readFully(buffer.array())
         }
-
-        // Set the byte order to match the system's native order
         buffer.order(ByteOrder.nativeOrder())
 
-        // The slice is 512x512
         val width = 512
         val height = 512
-
         val slice = Array(height) { DoubleArray(width) }
 
         for (y in 0 until height) {
@@ -105,7 +132,6 @@ class HomeScreenResults : AppCompatActivity() {
                 slice[y][x] = buffer.double
             }
         }
-
         return slice
     }
 
@@ -123,12 +149,11 @@ class HomeScreenResults : AppCompatActivity() {
                 pixels[y * width + x] = Color.rgb(normalizedValue, normalizedValue, normalizedValue)
             }
         }
-
         return Bitmap.createBitmap(pixels, width, height, Bitmap.Config.ARGB_8888)
     }
 
     private fun convertBitmapToByteBuffer(bitmap: Bitmap): ByteBuffer {
-        val inputBuffer = ByteBuffer.allocateDirect(256 * 256 * 4) // Float32 input
+        val inputBuffer = ByteBuffer.allocateDirect(256 * 256 * 4)
         inputBuffer.order(ByteOrder.nativeOrder())
 
         val pixels = IntArray(256 * 256)
@@ -138,7 +163,6 @@ class HomeScreenResults : AppCompatActivity() {
             val grayscale = (pixel and 0xFF).toFloat() / 255.0f
             inputBuffer.putFloat(grayscale)
         }
-
         return inputBuffer
     }
 
@@ -157,7 +181,7 @@ class HomeScreenResults : AppCompatActivity() {
         }
     }
 
-    private fun drawLabelOnPrediction(bitmap: Bitmap, x: Int, y: Int) {
+    private fun drawLabelOnPrediction(bitmap: Bitmap, x: Int, y: Int, roi: IntArray): Bitmap {
         val mutableBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true)
         val canvas = Canvas(mutableBitmap)
         val paint = Paint().apply {
@@ -165,7 +189,44 @@ class HomeScreenResults : AppCompatActivity() {
             style = Paint.Style.STROKE
             strokeWidth = 5f
         }
-        canvas.drawCircle(x.toFloat(), y.toFloat(), 20f, paint)
-        imageView.setImageBitmap(mutableBitmap)
+        val rect = Rect(roi[0], roi[2], roi[1], roi[3])
+        canvas.drawRect(rect, paint)
+
+        // Changed to RED circle with only stroke, no fill
+        paint.color = Color.RED
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = 3f
+        canvas.drawCircle(x.toFloat(), y.toFloat(), 5f, paint)
+
+        return mutableBitmap
+    }
+    inner class SlicePagerAdapter : PagerAdapter() {
+        private val images = mutableListOf<Bitmap?>() // Allow nulls
+
+        override fun getCount(): Int = 21 // Number of slices from 52 to 72
+
+        override fun isViewFromObject(view: android.view.View, `object`: Any): Boolean {
+            return view === `object`
+        }
+
+        override fun instantiateItem(container: android.view.ViewGroup, position: Int): Any {
+            val imageView = ImageView(this@HomeScreenResults)
+            imageView.scaleType = ImageView.ScaleType.FIT_CENTER
+            imageView.tag = position // Set tag for easy access
+            container.addView(imageView)
+            return imageView
+        }
+
+        override fun destroyItem(container: android.view.ViewGroup, position: Int, `object`: Any) {
+            container.removeView(`object` as android.view.View)
+        }
+
+        fun updateImage(position: Int, bitmap: Bitmap) {
+            while (images.size <= position) {
+                images.add(null)
+            }
+            images[position] = bitmap
+            (viewPager.findViewWithTag(position) as? ImageView)?.setImageBitmap(bitmap)
+        }
     }
 }

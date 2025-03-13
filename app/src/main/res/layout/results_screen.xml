@@ -1,26 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:gravity="center"
-    android:padding="16dp">
+    android:orientation="vertical">
 
-    <!-- ImageView to display MRI slice -->
-    <ImageView
-        android:id="@+id/mriImageView"
-        android:layout_width="256dp"
-        android:layout_height="256dp"
-        android:scaleType="fitCenter"
-        android:contentDescription="MRI Slice" />
+    <androidx.viewpager.widget.ViewPager
+        android:id="@+id/sliceViewPager"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
 
-    <!-- TextView to display predicted coordinates -->
     <TextView
         android:id="@+id/predictionText"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Prediction: (X, Y)"
-        android:textSize="18sp"
-        android:layout_marginTop="16dp"/>
+        android:gravity="center"
+        android:textSize="16sp" />
+
 </LinearLayout>

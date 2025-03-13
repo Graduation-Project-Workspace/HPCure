@@ -45,6 +45,7 @@
         <activity android:name=".HomeScreenResults"
             android:exported="true"
             android:theme="@style/Theme.AppCompat.Light.NoActionBar"
+            android:hardwareAccelerated="true"
             />
 
         <!-- MainActivity should NOT have the Launcher category -->
