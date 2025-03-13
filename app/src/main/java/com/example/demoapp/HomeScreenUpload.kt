@@ -139,6 +139,12 @@ class HomeScreenUpload : AppCompatActivity() {
     private fun navigateToResults() {
     }
 
+    private fun preprocessMriSequence(){
+        // preprocess the MRI DICOM sequence to have a 3d image array [][][# slices] [512][512][# slices]
+
+
+    }
+
     private fun loadCurrentImage() {
         FileManager.getCurrentFile()?.let { file ->
             val bitmap = FileManager.getProcessedImage(this, file)
