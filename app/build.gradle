@@ -47,6 +47,12 @@ android {
         exclude 'META-INF/notice.txt'
         exclude 'META-INF/ASL2.0'
     }
+
+    sourceSets {
+        main {
+            jniLibs.srcDirs = ['src/main/jniLibs']
+        }
+    }
 }
 
 dependencies {
@@ -70,6 +76,7 @@ dependencies {
     // Coroutines
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3'
+    implementation fileTree(dir: 'libs\\SimpleITK-2.4.1-Java-linux_aarch64', include: ['*.aar', '*.jar'], exclude: [])
 
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.2.1'

@@ -1,11 +1,18 @@
 package com.example.demoapp
 
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.view.View
 import android.widget.*
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class HomeScreenUpload : AppCompatActivity() {
     private lateinit var mriImage: ImageView
@@ -44,16 +51,41 @@ class HomeScreenUpload : AppCompatActivity() {
         updateDisplay()
     }
 
-    private fun setupCalculateButton() {
-        calculateButton.setOnClickListener {
-            showLoadingState()
-            // Simulate processing delay of 2 seconds
-            Handler(Looper.getMainLooper()).postDelayed({
+@RequiresApi(Build.VERSION_CODES.N)
+private fun setupCalculateButton() {
+    calculateButton.setOnClickListener {
+        showLoadingState()
+
+        // Perform the volume estimation in a background thread
+        CoroutineScope(Dispatchers.IO).launch {
+            // Retrieve the list of bitmaps
+            val bitmaps = FileManager.getAllFiles().mapNotNull { file ->
+                FileManager.getProcessedImage(this@HomeScreenUpload, file)
+            }
+
+            // Generate seed points (center of each image)
+            val seedPoints = bitmaps.map { bitmap ->
+                Pair(bitmap.width / 2, bitmap.height / 2)
+            }
+
+            // Parse alphaCutValue from the TextView
+            val alphaCut = alphaCutValue.text.toString().replace("%", "").toFloat()
+
+            // Call estimateVolume
+            val volumeEstimator = VolumeEstimator()
+            val total_volume = volumeEstimator.estimateVolume(bitmaps, seedPoints, alphaCut)
+
+            // Log the result
+            Log.d("VolumeEstimate", "Estimated Volume: $total_volume")
+
+            // Update the UI on the main thread
+            withContext(Dispatchers.Main) {
                 hideLoadingState()
                 navigateToResults()
-            }, 2000)
+            }
         }
     }
+}
 
     private fun showLoadingState() {
         loadingOverlay.alpha = 0f
