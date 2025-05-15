@@ -1,18 +1,19 @@
 package com.example.demoapp
 
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import androidx.core.app.ComponentActivity
+import androidx.appcompat.app.AppCompatActivity
 
-
-class SplashActivity : ComponentActivity() {
+@SuppressLint("CustomSplashScreen")
+class SplashActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_splash)
         Handler(Looper.getMainLooper()).postDelayed({
-            startActivity(Intent(this, HomeScreenResults::class.java))
+            startActivity(Intent(this, OnboardingActivity::class.java))
             finish()
         }, 4000)
     }

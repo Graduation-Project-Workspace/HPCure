@@ -48,6 +48,12 @@
             android:theme="@style/Theme.AppCompat.Light.NoActionBar"
             android:hardwareAccelerated="true"
             />
+        <activity android:name=".ModelScreen"
+            android:exported="true"
+            android:theme="@style/Theme.AppCompat.Light.NoActionBar"
+            android:hardwareAccelerated="true"
+            />
+
 
         <!-- MainActivity should NOT have the Launcher category -->
         <activity

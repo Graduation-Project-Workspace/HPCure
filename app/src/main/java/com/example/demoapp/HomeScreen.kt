@@ -45,6 +45,12 @@ class HomeScreen : AppCompatActivity() {
                 showToast("Please select a DICOM directory first")
             }
         }
+        val nextButton: Button = findViewById(R.id.go_to_next_screen)
+        nextButton.setOnClickListener {
+            val intent = Intent(this, ModelScreen::class.java)
+            startActivity(intent)
+        }
+
     }
 
     private fun openDirectoryPicker() {
