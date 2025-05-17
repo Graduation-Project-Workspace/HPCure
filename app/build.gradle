@@ -33,6 +33,22 @@ android {
     buildFeatures {
         viewBinding true
     }
+    packagingOptions {
+        exclude 'META-INF/DEPENDENCIES'
+        exclude 'META-INF/LICENSE'
+        exclude 'META-INF/LICENSE.txt'
+        exclude 'META-INF/license.txt'
+        exclude 'META-INF/NOTICE'
+        exclude 'META-INF/NOTICE.txt'
+        exclude 'META-INF/notice.txt'
+        exclude 'META-INF/ASL2.0'
+    }
+
+    sourceSets {
+        main {
+            jniLibs.srcDirs = ['src/main/jniLibs']
+        }
+    }
 }
 
 dependencies {
@@ -41,6 +57,7 @@ dependencies {
     implementation 'androidx.appcompat:appcompat:1.7.0'
     implementation 'com.google.android.material:material:1.11.0'
     implementation 'androidx.core:core-splashscreen:1.0.1'
+
     implementation 'androidx.constraintlayout:constraintlayout:2.2.1'
     implementation 'androidx.navigation:navigation-fragment-ktx:2.8.8'
     implementation 'androidx.navigation:navigation-ui-ktx:2.8.8'
@@ -53,6 +70,22 @@ dependencies {
     implementation 'org.dcm4che:dcm4che-image:5.22.6'
     implementation 'org.dcm4che:dcm4che-imageio:5.22.6'
     implementation 'org.dcm4che:dcm4che-imageio-rle:5.22.6'
+
+    implementation "com.google.accompanist:accompanist-pager:0.26.5-rc"
+    implementation 'androidx.viewpager2:viewpager2:1.0.0'
+
+    // DICOM libraries
+    implementation 'org.dcm4che:dcm4che-core:5.31.2'
+    implementation 'org.dcm4che:dcm4che-imageio:5.31.2'
+    implementation 'org.dcm4che:dcm4che-image:5.31.2'
+    implementation 'org.slf4j:slf4j-api:1.7.32'
+    implementation 'org.slf4j:slf4j-simple:1.7.32'
+
+    // Coroutines
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3'
+    implementation fileTree(dir: 'libs\\SimpleITK-2.4.1-Java-linux_aarch64', include: ['*.aar', '*.jar'], exclude: [])
+
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.2.1'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.6.1'

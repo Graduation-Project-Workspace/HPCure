@@ -138,6 +138,10 @@ object FileManager {
         } else null
     }
 
+    fun getAllFiles(): List<File> {
+        return dicomFiles
+    }
+
     fun getProcessedImage(context: Context, file: File): Bitmap? {
         return try {
             if (!isValidDicomFile(file)) {
