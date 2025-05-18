@@ -1,4 +1,4 @@
-package com.example.demoapp
+package com.example.demoapp.Screen
 
 import android.graphics.Bitmap
 import android.os.Bundle
@@ -8,6 +8,8 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.*
 import androidx.fragment.app.Fragment
+import com.example.demoapp.R
+import com.example.demoapp.Utils.DicomUtils
 import org.dcm4che3.io.DicomInputStream
 
 class HomeScreenResults : Fragment() {

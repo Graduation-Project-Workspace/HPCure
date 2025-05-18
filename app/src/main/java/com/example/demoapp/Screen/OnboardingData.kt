@@ -1,4 +1,6 @@
-package com.example.demoapp
+package com.example.demoapp.Screen
+
+import com.example.demoapp.R
 
 data class OnboardingPage(
     val imageRes: Int,

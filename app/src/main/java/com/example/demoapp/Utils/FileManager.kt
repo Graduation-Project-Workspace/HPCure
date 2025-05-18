@@ -1,4 +1,4 @@
-package com.example.demoapp
+package com.example.demoapp.Utils
 
 import android.content.Context
 import android.content.Intent
@@ -133,6 +133,10 @@ object FileManager {
         return if (dicomFiles.isNotEmpty() && currentIndex in dicomFiles.indices) {
             dicomFiles[currentIndex]
         } else null
+    }
+
+    fun getAllFiles(): List<File> {
+        return dicomFiles
     }
 
     fun getProcessedImage(context: Context, file: File): Bitmap? {

@@ -1,10 +1,10 @@
-package com.example.demoapp
+package com.example.demoapp.Screen
 
 import android.os.Bundle
-import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import com.example.demoapp.R
 
 class SecondActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {

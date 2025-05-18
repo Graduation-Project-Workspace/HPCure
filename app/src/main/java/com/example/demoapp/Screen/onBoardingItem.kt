@@ -1,4 +1,4 @@
-package com.example.demoapp
+package com.example.demoapp.Screen
 
 data class OnboardingItem(
     val title: String,

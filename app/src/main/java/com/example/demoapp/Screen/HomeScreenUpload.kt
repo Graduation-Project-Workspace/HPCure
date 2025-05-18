@@ -1,12 +1,30 @@
-package com.example.demoapp
+package com.example.demoapp.Screen
 
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
+import android.os.Environment
+import android.provider.Settings
+import android.util.Log
 import android.view.View
 import android.widget.*
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
+import com.example.demoapp.Core.VolumeEstimator
+import com.example.demoapp.Model.MRISequence
+import com.example.demoapp.R
+import com.example.demoapp.Utils.FileManager
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
+@RequiresApi(Build.VERSION_CODES.N)
 class HomeScreenUpload : AppCompatActivity() {
     private lateinit var mriImage: ImageView
     private lateinit var alphaCutValue: TextView
@@ -19,10 +37,60 @@ class HomeScreenUpload : AppCompatActivity() {
     private lateinit var loadingOverlay: RelativeLayout
     private lateinit var calculateButton: Button
 
+    private val storagePermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        if (permissions.all { it.value }) {
+            initializeApp()
+        } else {
+            Toast.makeText(this, "Storage permission required to load images", Toast.LENGTH_SHORT).show()
+            finish()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.hs_upload)
 
+        if (checkStoragePermission()) {
+            initializeApp()
+        } else {
+            requestStoragePermission()
+        }
+    }
+
+    private fun checkStoragePermission(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            Environment.isExternalStorageManager()
+        } else {
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.READ_EXTERNAL_STORAGE
+            ) == PackageManager.PERMISSION_GRANTED
+        }
+    }
+
+    private fun requestStoragePermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
+                    data = Uri.parse("package:$packageName")
+                }
+                startActivity(intent)
+            } catch (e: Exception) {
+                startActivity(Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION))
+            }
+        } else {
+            storagePermissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.READ_EXTERNAL_STORAGE,
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE
+                )
+            )
+        }
+    }
+
+    private fun initializeApp() {
         initializeViews()
         setupImageNavigation()
         setupAlphaCutControl()
@@ -47,11 +115,34 @@ class HomeScreenUpload : AppCompatActivity() {
     private fun setupCalculateButton() {
         calculateButton.setOnClickListener {
             showLoadingState()
-            // Simulate processing delay of 2 seconds
-            Handler(Looper.getMainLooper()).postDelayed({
-                hideLoadingState()
-                navigateToResults()
-            }, 2000)
+
+            // Perform the volume estimation in a background thread
+            CoroutineScope(Dispatchers.IO).launch {
+                // Retrieve the list of bitmaps
+                val bitmaps = FileManager.getAllFiles().mapNotNull { file ->
+                    FileManager.getProcessedImage(this@HomeScreenUpload, file)
+                }
+
+                // Parse alphaCutValue from the TextView
+                val alphaCut = alphaCutValue.text.toString().replace("%", "").toFloat()
+
+                // Call estimateVolume
+                val volumeEstimator = VolumeEstimator()
+                val mriSequence = MRISequence(
+                    images = bitmaps,
+                    metadata = HashMap()
+                );
+                val total_volume = volumeEstimator.estimateVolume(mriSequence, alphaCut)
+
+                // Log the result
+                Log.d("VolumeEstimate", "Estimated Volume: ${total_volume.volume}")
+
+                // Update the UI on the main thread
+                withContext(Dispatchers.Main) {
+                    hideLoadingState()
+                    navigateToResults()
+                }
+            }
         }
     }
 
@@ -86,6 +177,12 @@ class HomeScreenUpload : AppCompatActivity() {
         transaction.replace(R.id.fragment_container, resultsFragment)
         transaction.addToBackStack(null)
         transaction.commit()
+    }
+
+    private fun preprocessMriSequence(){
+        // preprocess the MRI DICOM sequence to have a 3d image array [][][# slices] [512][512][# slices]
+
+
     }
 
     private fun loadCurrentImage() {

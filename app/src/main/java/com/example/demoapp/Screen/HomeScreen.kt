@@ -1,7 +1,8 @@
-package com.example.demoapp
+package com.example.demoapp.Screen
 
 import android.app.Activity
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import android.provider.DocumentsContract
@@ -11,11 +12,12 @@ import android.widget.ImageView
 import android.widget.RelativeLayout
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import com.example.demoapp.R
+import com.example.demoapp.Utils.FileManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import android.content.pm.PackageManager
 
 
 class HomeScreen : AppCompatActivity() {
@@ -23,18 +25,20 @@ class HomeScreen : AppCompatActivity() {
     private lateinit var uploadedImage: ImageView
     private val PERMISSION_REQUEST_CODE = 123
 
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.home_screen)
         FileManager.initialize(this)
+
+//        benchmark()
 
         val uploadContainer: RelativeLayout = findViewById(R.id.upload_container)
         val processButton: Button = findViewById(R.id.process_button)
         uploadedImage = findViewById(R.id.uploaded_image)
 
         uploadContainer.setOnClickListener {
-            checkAndRequestPermissions()
+//            checkAndRequestPermissions()
+            openDirectoryPicker()
         }
 
         processButton.setOnClickListener {
@@ -45,7 +49,77 @@ class HomeScreen : AppCompatActivity() {
                 showToast("Please select a DICOM directory first")
             }
         }
+        val nextButton: Button = findViewById(R.id.go_to_next_screen)
+        nextButton.setOnClickListener {
+            val intent = Intent(this, ModelScreen::class.java)
+            startActivity(intent)
+        }
+
     }
+
+//    external fun doOps(ops: Long) : Long;
+//
+//    companion object {
+//        init {
+//            System.loadLibrary("demoapp")
+//        }
+//    }
+
+//    private fun benchmark() {
+//        val jobCounts = listOf(3, 50, 100, 1000);
+//        val ops = listOf(1e6.toInt(), 1e7.toInt(), 1e8.toInt(), 1e9.toInt());
+//        val idleTimes = listOf(1000, 10000);
+//
+//
+//        for(op in ops){
+//            var time = measureTimeMillis {
+//                val result = doOps(op.toLong())
+//            }
+//            Log.d("ExecutionTime", "Execution time (Native), $op ops: $time ms")
+//
+//            time = measureTimeMillis {
+//                var sum = 0;
+//                for(i in 1..op) {
+//                    sum += i
+//                }
+//            }
+//            Log.d("ExecutionTime", "Execution time (Sequential), $op ops: $time ms")
+//        }
+
+
+//        for (jobCount in jobCounts){
+//            for(idleTime in idleTimes){
+//                val concurrencyDemo = ConcurrencyDemo()
+//                concurrencyDemo.runIdleTasks(jobCount, idleTime)
+//
+//                val parallelizeDemo = ParallelizeDemo()
+//                parallelizeDemo.runIdleTasks(jobCount, idleTime)
+//            }
+//        }
+
+//        for (jobCount in jobCounts) {
+//            for (op in ops) {
+//                val concurrencyDemo = ConcurrencyDemo()
+//                concurrencyDemo.main(jobCount, op)
+//
+//                val parallelizeDemo = ParallelizeDemo()
+//                parallelizeDemo.main(jobCount, op)
+//
+//                if(jobCount.toLong() * op.toLong() > 1e10.toLong())
+//                    break
+//
+//                val time = measureTimeMillis {
+//                    for(t in 1..jobCount) {
+//                        var sum = 0;
+//                        for (i in 1..op) {
+//                            sum += i
+//                        }
+//                    }
+//                }
+//                Log.d("ExecutionTime", "Execution time (Sequential), $jobCount jobs, $op ops: $time ms")
+//            }
+//        }
+//    }
 
     private fun openDirectoryPicker() {
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
