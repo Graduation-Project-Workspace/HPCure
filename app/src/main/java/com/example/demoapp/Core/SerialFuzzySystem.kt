@@ -1,10 +1,10 @@
-package com.example.demoapp.Core.Interfaces
+package com.example.demoapp.Core
 
 import android.graphics.Bitmap
 import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
-import com.example.demoapp.Core.FuzzyConnectedness
+import com.example.demoapp.Core.Interfaces.IFuzzySystem
 import com.example.demoapp.Model.CancerVolume
 import com.example.demoapp.Model.MRISequence
 import com.example.demoapp.Model.ROI
