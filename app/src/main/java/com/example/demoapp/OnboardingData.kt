@@ -1,6 +1,5 @@
 package com.example.demoapp
 
-
 data class OnboardingPage(
     val imageRes: Int,
     val title: String,

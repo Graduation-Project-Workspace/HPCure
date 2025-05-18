@@ -10,7 +10,6 @@ import android.view.WindowManager
 import android.widget.Button
 import android.widget.TextView
 import androidx.core.content.ContextCompat
-import com.example.demoapp.R
 
 class ErrorDialog(private val context: Context) {
     fun show(message: String) {

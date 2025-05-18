@@ -3,6 +3,7 @@ pluginManagement {
         google()
         mavenCentral()
         gradlePluginPortal()
+        maven { url 'https://www.dcm4che.org/maven2/' }
     }
 }
 dependencyResolutionManagement {
@@ -10,10 +11,9 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        maven{
-            url 'https://maven.dcm4che.org/'
-        }
+        maven { url 'https://www.dcm4che.org/maven2/' }
     }
 }
-rootProject.name = "My Application"
+
+rootProject.name = "DemoApp"
 include ':app'
