@@ -1,10 +1,6 @@
-package com.example.demoapp
+package com.example.demoapp.Screen
 
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.Color
-import android.graphics.Paint
-import android.graphics.Rect
+import android.graphics.*
 import android.os.Bundle
 import android.util.Log
 import android.widget.ImageView
@@ -12,12 +8,13 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.viewpager.widget.PagerAdapter
 import androidx.viewpager.widget.ViewPager
+import com.example.demoapp.R
+import com.example.demoapp.Utils.GpuDelegateHelper
 import kotlinx.coroutines.*
 import org.tensorflow.lite.Interpreter
 import java.io.DataInputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import kotlin.system.measureTimeMillis
 
 class ModelScreen : AppCompatActivity() {
 
@@ -30,7 +27,7 @@ class ModelScreen : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.results_screen)
+        setContentView(R.layout.model_screen)
 
         viewPager = findViewById(R.id.sliceViewPager)
         predictionText = findViewById(R.id.predictionText)

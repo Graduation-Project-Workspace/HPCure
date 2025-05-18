@@ -1,34 +1,31 @@
-package com.example.demoapp
+package com.example.demoapp.Screen
 
 
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
-
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
-import android.os.Handler
-import android.os.Looper
-
 import android.provider.Settings
-import android.view.View
-import android.widget.*
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
-
 import android.util.Log
 import android.view.View
 import android.widget.*
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
+import com.example.demoapp.Core.VolumeEstimator
+import com.example.demoapp.Model.MRISequence
+import com.example.demoapp.R
+import com.example.demoapp.Utils.FileManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+@RequiresApi(Build.VERSION_CODES.N)
 class HomeScreenUpload : AppCompatActivity() {
     private lateinit var mriImage: ImageView
     private lateinit var alphaCutValue: TextView
@@ -116,7 +113,6 @@ class HomeScreenUpload : AppCompatActivity() {
         updateDisplay()
     }
 
-@RequiresApi(Build.VERSION_CODES.N)
 private fun setupCalculateButton() {
     calculateButton.setOnClickListener {
         showLoadingState()
@@ -128,20 +124,19 @@ private fun setupCalculateButton() {
                 FileManager.getProcessedImage(this@HomeScreenUpload, file)
             }
 
-            // Generate seed points (center of each image)
-            val seedPoints = bitmaps.map { bitmap ->
-                Pair(bitmap.width / 2, bitmap.height / 2)
-            }
-
             // Parse alphaCutValue from the TextView
             val alphaCut = alphaCutValue.text.toString().replace("%", "").toFloat()
 
             // Call estimateVolume
             val volumeEstimator = VolumeEstimator()
-            val total_volume = volumeEstimator.estimateVolume(bitmaps, seedPoints, alphaCut)
+            val mriSequence = MRISequence(
+                images = bitmaps,
+                metadata = HashMap()
+            );
+            val total_volume = volumeEstimator.estimateVolume(mriSequence, alphaCut)
 
             // Log the result
-            Log.d("VolumeEstimate", "Estimated Volume: $total_volume")
+            Log.d("VolumeEstimate", "Estimated Volume: ${total_volume.volume}")
 
             // Update the UI on the main thread
             withContext(Dispatchers.Main) {
@@ -175,6 +170,14 @@ private fun setupCalculateButton() {
     }
 
     private fun navigateToResults() {
+        val fragmentManager = supportFragmentManager
+        val transaction = fragmentManager.beginTransaction()
+
+        // Create and add HomeScreenResults fragment
+        val resultsFragment = HomeScreenResults.newInstance()
+        transaction.replace(R.id.fragment_container, resultsFragment)
+        transaction.addToBackStack(null)
+        transaction.commit()
     }
 
     private fun preprocessMriSequence(){

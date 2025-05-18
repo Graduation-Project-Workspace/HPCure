@@ -1,4 +1,4 @@
-package com.example.demoapp
+package com.example.demoapp.Screen
 
 import android.app.Activity
 import android.content.Intent
@@ -12,6 +12,8 @@ import android.widget.ImageView
 import android.widget.RelativeLayout
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import com.example.demoapp.R
+import com.example.demoapp.Utils.FileManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch

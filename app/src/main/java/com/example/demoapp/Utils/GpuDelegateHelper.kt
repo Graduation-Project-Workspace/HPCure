@@ -1,4 +1,4 @@
-package com.example.demoapp
+package com.example.demoapp.Utils
 
 import org.tensorflow.lite.Delegate
 import org.tensorflow.lite.gpu.CompatibilityList

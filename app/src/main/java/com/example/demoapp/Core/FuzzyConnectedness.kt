@@ -1,4 +1,4 @@
-package com.example.demoapp
+package com.example.demoapp.Core
 
 import android.graphics.Bitmap
 import android.os.Build
