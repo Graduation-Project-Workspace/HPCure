@@ -86,9 +86,6 @@ object FileManager {
             }
         }
     }
-    private fun requestStoragePermission(context: Context) {
-
-    }
 
     private fun isDicomFile(name: String): Boolean {
         return name.endsWith(".dcm", ignoreCase = true) ||

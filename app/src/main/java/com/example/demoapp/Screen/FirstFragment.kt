@@ -9,7 +9,6 @@ import androidx.navigation.fragment.findNavController
 import com.example.demoapp.R
 import com.example.demoapp.databinding.FragmentFirstBinding
 
-
 /**
  * A simple [Fragment] subclass as the default destination in the navigation.
  */
