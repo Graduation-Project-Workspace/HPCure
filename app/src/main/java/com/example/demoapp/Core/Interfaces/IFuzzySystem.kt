@@ -7,7 +7,7 @@ import com.example.demoapp.Model.ROI
 interface IFuzzySystem {
     fun estimateVolume(
         mriSequence: MRISequence,
-        roi: ROI,
+        roiList: List<ROI>,
         seedPoints : List<Pair<Int, Int>>,
         alphaCut: Float,
     ): CancerVolume

@@ -3,13 +3,14 @@ package com.example.demoapp.Core
 import android.graphics.Bitmap
 import android.os.Build
 import androidx.annotation.RequiresApi
+import com.example.demoapp.Model.ROI
 import java.util.PriorityQueue
 import kotlin.math.abs
 import kotlin.math.exp
 import kotlin.math.sqrt
 
 @RequiresApi(Build.VERSION_CODES.N)
-class FuzzyConnectedness(private val img: Bitmap, private val seeds: List<Pair<Int, Int>>) {
+class FuzzyConnectedness(private val img: Bitmap, private val roi : ROI, private val seeds: List<Pair<Int, Int>>) {
     private val width = img.width
     private val height = img.height
     private val pixels = IntArray(width * height)
@@ -34,10 +35,10 @@ class FuzzyConnectedness(private val img: Bitmap, private val seeds: List<Pair<I
         val y = index / width
         val neighbors = mutableListOf<Int>()
 
-        if (x > 0) neighbors.add(index - 1) // Left
-        if (x < width - 1) neighbors.add(index + 1) // Right
-        if (y > 0) neighbors.add(index - width) // Up
-        if (y < height - 1) neighbors.add(index + width) // Down
+        if (x > roi.xMin) neighbors.add(index - 1) // Left
+        if (x < roi.xMax) neighbors.add(index + 1) // Right
+        if (y > roi.yMin) neighbors.add(index - width) // Up
+        if (y < roi.yMax) neighbors.add(index + width) // Down
 
         return neighbors
     }
