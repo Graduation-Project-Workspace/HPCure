@@ -36,6 +36,7 @@ class HomeScreenUpload : AppCompatActivity() {
 
     private lateinit var loadingOverlay: RelativeLayout
     private lateinit var calculateButton: Button
+    private var context = this
 
     private val storagePermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -58,7 +59,6 @@ class HomeScreenUpload : AppCompatActivity() {
             requestStoragePermission()
         }
     }
-
     private fun checkStoragePermission(): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             Environment.isExternalStorageManager()
@@ -69,7 +69,6 @@ class HomeScreenUpload : AppCompatActivity() {
             ) == PackageManager.PERMISSION_GRANTED
         }
     }
-
     private fun requestStoragePermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             try {
@@ -89,7 +88,6 @@ class HomeScreenUpload : AppCompatActivity() {
             )
         }
     }
-
     private fun initializeApp() {
         initializeViews()
         setupImageNavigation()
@@ -111,7 +109,6 @@ class HomeScreenUpload : AppCompatActivity() {
 
         updateDisplay()
     }
-
     private fun setupCalculateButton() {
         calculateButton.setOnClickListener {
             showLoadingState()
@@ -127,7 +124,7 @@ class HomeScreenUpload : AppCompatActivity() {
                 val alphaCut = alphaCutValue.text.toString().replace("%", "").toFloat()
 
                 // Call estimateVolume
-                val volumeEstimator = VolumeEstimator()
+                val volumeEstimator = VolumeEstimator(context = context)
                 val mriSequence = MRISequence(
                     images = bitmaps,
                     metadata = HashMap()
@@ -145,7 +142,6 @@ class HomeScreenUpload : AppCompatActivity() {
             }
         }
     }
-
     private fun showLoadingState() {
         loadingOverlay.alpha = 0f
         loadingOverlay.visibility = View.VISIBLE
