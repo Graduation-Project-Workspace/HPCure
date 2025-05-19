@@ -6,16 +6,18 @@ import com.example.demoapp.Model.MRISequence
 import com.example.demoapp.Model.ROI
 import com.example.demoapp.Core.SeedPredictor
 import android.content.Context
+import com.example.demoapp.Core.Interfaces.ISeedPrecitor
 
 @RequiresApi(Build.VERSION_CODES.N)
 class VolumeEstimator {
 
     private val fuzzySystem: ParallelFuzzySystem = ParallelFuzzySystem();
-    private lateinit var seedPredictor: SeedPredictor
+    private lateinit var seedPredictor: ISeedPrecitor
     private lateinit var context: Context
-     constructor(context: Context) {
-        this.context = context
-         seedPredictor = SeedPredictor(context = context);
+     constructor(context: Context , seedPredictor: ISeedPrecitor) {
+         this.context = context
+         this.seedPredictor = seedPredictor;
+         this.context = context
     }
     fun estimateVolume(mriSeq : MRISequence, alphaCutValue : Float) : CancerVolume {
         val roi = ROI(
