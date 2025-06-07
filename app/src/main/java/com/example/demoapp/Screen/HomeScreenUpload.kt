@@ -18,6 +18,7 @@ import androidx.core.content.ContextCompat
 import com.example.demoapp.Core.ParallelFuzzySystem
 import com.example.demoapp.Core.SeedPredictor
 import com.example.demoapp.Core.VolumeEstimator
+import com.example.demoapp.Model.CancerVolume
 import com.example.demoapp.Model.MRISequence
 import com.example.demoapp.R
 import com.example.demoapp.Utils.FileManager
@@ -36,6 +37,8 @@ class HomeScreenUpload : AppCompatActivity() {
     private lateinit var prevImage: ImageButton
     private lateinit var nextImage: ImageButton
     private var currentAlphaCutValue: Float = 50.00f
+    private lateinit var cancerVolume: CancerVolume
+    private lateinit var mriSequence: MRISequence
 
     private lateinit var loadingOverlay: RelativeLayout
     private lateinit var calculateButton: Button
@@ -127,19 +130,17 @@ class HomeScreenUpload : AppCompatActivity() {
                 val alphaCut = alphaCutValue.text.toString().replace("%", "").toFloat()
 
                 // Call estimateVolume
-
-
-                val mriSequence = MRISequence(
-                    images = bitmaps,
-                    metadata = HashMap()
-                );
                 val seedPredictor = SeedPredictor(context = context);
                 val volumeEstimator = VolumeEstimator(
-                    context = context,
                     seedPredictor = seedPredictor,
                     fuzzySystem = ParallelFuzzySystem()
                 )
-                val cancerVolume = volumeEstimator.estimateVolume(mriSequence, alphaCut)
+                mriSequence = MRISequence(
+                    images = bitmaps,
+                    metadata = HashMap()
+                );
+
+                cancerVolume = volumeEstimator.estimateVolume(mriSequence, alphaCut)
                 // Log the result
                 Log.d("VolumeEstimate", "Estimated Volume: ${cancerVolume.volume}")
 
@@ -176,9 +177,10 @@ class HomeScreenUpload : AppCompatActivity() {
     private fun navigateToResults() {
         val fragmentManager = supportFragmentManager
         val transaction = fragmentManager.beginTransaction()
+        val alphaCut = alphaCutValue.text.toString().replace("%", "").toFloat()
 
         // Create and add HomeScreenResults fragment
-        val resultsFragment = HomeScreenResults.newInstance()
+        val resultsFragment = HomeScreenResults.newInstance(mriSequence, cancerVolume, alphaCut)
         transaction.replace(R.id.fragment_container, resultsFragment)
         transaction.addToBackStack(null)
         transaction.commit()
