@@ -20,6 +20,8 @@ class VolumeEstimator {
          this.context = context
     }
     fun estimateVolume(mriSeq : MRISequence, alphaCutValue : Float) : CancerVolume {
+
+        // call IROI predictor
         val roi = ROI(
             start_slice = 0,
             end_slice = 0,

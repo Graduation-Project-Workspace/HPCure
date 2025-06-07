@@ -15,6 +15,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import com.example.demoapp.Core.SeedPredictor
 import com.example.demoapp.Core.VolumeEstimator
 import com.example.demoapp.Model.MRISequence
 import com.example.demoapp.R
@@ -124,7 +125,8 @@ class HomeScreenUpload : AppCompatActivity() {
                 val alphaCut = alphaCutValue.text.toString().replace("%", "").toFloat()
 
                 // Call estimateVolume
-                val volumeEstimator = VolumeEstimator(context = context)
+                val seedPredictor = SeedPredictor(context = context)
+                val volumeEstimator = VolumeEstimator(context = context , seedPredictor = seedPredictor)
                 val mriSequence = MRISequence(
                     images = bitmaps,
                     metadata = HashMap()
