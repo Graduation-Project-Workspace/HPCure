@@ -7,12 +7,14 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.*
+import androidx.core.graphics.get
+import androidx.core.graphics.set
 import androidx.fragment.app.Fragment
+import com.example.demoapp.Model.CancerVolume
+import com.example.demoapp.Model.MRISequence
 import com.example.demoapp.R
-import com.example.demoapp.Utils.DicomUtils
-import org.dcm4che3.io.DicomInputStream
 
-class HomeScreenResults : Fragment() {
+class HomeScreenResults(private var mriSequence: MRISequence, private var cancerVolume: CancerVolume, private var alphaCut: Float) : Fragment() {
     private lateinit var mriImage: ImageView
     private lateinit var imageCount: TextView
     private lateinit var prevImage: ImageButton
@@ -26,8 +28,8 @@ class HomeScreenResults : Fragment() {
     companion object {
         private const val TAG = "HomeScreenResults"
 
-        fun newInstance(): HomeScreenResults {
-            return HomeScreenResults()
+        fun newInstance(mriSequence: MRISequence, cancerVolume: CancerVolume, alphaCut: Float): HomeScreenResults {
+            return HomeScreenResults(mriSequence, cancerVolume, alphaCut)
         }
     }
 
@@ -45,6 +47,8 @@ class HomeScreenResults : Fragment() {
         loadDicomFiles()
         setupImageNavigation()
         setupDownloadButton()
+
+        tumorVolume.text = "Estimated Tumor Volume: ${cancerVolume.volume} cm³"
     }
 
     private fun initializeViews(view: View) {
@@ -59,47 +63,19 @@ class HomeScreenResults : Fragment() {
         mriImage.setBackgroundColor(android.graphics.Color.LTGRAY)
     }
 
+
     private fun loadDicomFiles() {
-        try {
-            context?.assets?.let { assets ->
-                // Check if the dicom directory exists
-                val files = assets.list("dicom")
-                Log.d(TAG, "Files in dicom directory: ${files?.joinToString() ?: "null"}")
+        for (i in 0 until mriSequence.images.size) {
+            dicomBitmaps.add(mriSequence.images[i])
+        }
 
-                for (i in 0..3) {
-                    val filename = "dicom/output$i.dcm"
-                    try {
-                        Log.d(TAG, "Attempting to load: $filename")
-                        assets.open(filename).use { inputStream ->
-                            val dis = DicomInputStream(inputStream)
-                            val bitmap = DicomUtils.convertDicomStreamToBitmap(dis)
-                            if (bitmap != null) {
-                                dicomBitmaps.add(bitmap)
-                                Log.d(TAG, "Successfully loaded bitmap for $filename")
-                            } else {
-                                Log.e(TAG, "Failed to convert $filename to bitmap")
-                            }
-                        }
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Error loading $filename", e)
-                    }
-                }
-
-                if (dicomBitmaps.isNotEmpty()) {
-                    Log.d(TAG, "Loaded ${dicomBitmaps.size} bitmaps")
-                    loadCurrentImage()
-                    updateImageCount()
-                } else {
-                    Log.e(TAG, "No bitmaps were loaded")
-                    showToast("No DICOM files could be loaded")
-                }
-            } ?: run {
-                Log.e(TAG, "Assets is null")
-                showToast("Error: Cannot access assets")
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error in loadDicomFiles", e)
-            showToast("Error loading files: ${e.message}")
+        if (dicomBitmaps.isNotEmpty()) {
+            Log.d(TAG, "Loaded ${dicomBitmaps.size} bitmaps")
+            loadCurrentImage()
+            updateImageCount()
+        } else {
+            Log.e(TAG, "No bitmaps were loaded")
+            showToast("No DICOM files could be loaded")
         }
     }
 
@@ -111,6 +87,22 @@ class HomeScreenResults : Fragment() {
 
         try {
             val bitmap = dicomBitmaps[currentImageIndex]
+
+            // Highlight the cancer area
+            for (y in 0 until bitmap.height) {
+                for (x in 0 until bitmap.width) {
+                    val pixel = bitmap[x, y]
+                    if (cancerVolume.affinityMatrix[currentImageIndex][y][x] < alphaCut / 100.0f) {
+                        // Darken the pixel to highlight the cancer area
+                        val red = (pixel shr 16 and 0xFF) * 0.5f
+                        val green = (pixel shr 8 and 0xFF) * 0.5f
+                        val blue = (pixel and 0xFF) * 0.5f
+                        bitmap[x, y] =
+                            (0xFF shl 24) or (red.toInt() shl 16) or (green.toInt() shl 8) or blue.toInt()
+                    }
+                }
+            }
+
             Log.d(TAG, "Setting bitmap for image ${currentImageIndex + 1}")
 
             mriImage.post {
