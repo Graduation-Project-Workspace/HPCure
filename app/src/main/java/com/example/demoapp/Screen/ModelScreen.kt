@@ -3,11 +3,14 @@ package com.example.demoapp.Screen
 import android.graphics.*
 import android.os.Bundle
 import android.util.Log
+import android.view.View
+import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.viewpager.widget.PagerAdapter
 import androidx.viewpager.widget.ViewPager
+import com.example.demoapp.Core.SeedPredictor
 import com.example.demoapp.R
 import com.example.demoapp.Utils.GpuDelegateHelper
 import kotlinx.coroutines.*
@@ -18,61 +21,47 @@ import java.nio.ByteOrder
 
 class ModelScreen : AppCompatActivity() {
 
-    private lateinit var tflite: Interpreter
+    private lateinit var seedPredictor: SeedPredictor
     private lateinit var viewPager: ViewPager
     private lateinit var predictionText: TextView
     @OptIn(ExperimentalCoroutinesApi::class)
     private val imageProcessingDispatcher = Dispatchers.Default.limitedParallelism(2)
     private val ROI = IntArray(4)
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.model_screen)
-
         viewPager = findViewById(R.id.sliceViewPager)
         predictionText = findViewById(R.id.predictionText)
-
         ROI[0] = 108  // x_min
         ROI[1] = 136  // x_max
         ROI[2] = 251  // y_min
         ROI[3] = 294  // y_max
-        initializeTFLite()
+        seedPredictor = SeedPredictor(context = this);
         viewPager.adapter = SlicePagerAdapter()
         viewPager.addOnPageChangeListener(object : ViewPager.OnPageChangeListener {
             override fun onPageScrolled(position: Int, positionOffset: Float, positionOffsetPixels: Int) {}
-
             override fun onPageSelected(position: Int) {
                 val sliceNumber = position + 52
                 val fileName = "Breast_MRI_002/image_slice_$sliceNumber.bin"
-
-
                 CoroutineScope(imageProcessingDispatcher).launch {
                     var inferenceTime: Long = 0 // Declare inferenceTime variable
                     try {
                         val startTime = System.currentTimeMillis() // Alternative way to measure time
-
                         val fullSlice = loadBinSlice(fileName)
-                        val fullBitmap = convertSliceToBitmap(fullSlice)
+                        val fullBitmap = convertSliceToBitmap(fullSlice) // Convert the full slice to a bitmap to
                         val roiSlice = extractRoi(fullSlice, ROI)
                         val roiBitmap = convertSliceToBitmap(roiSlice)
-                        val resizedRoiBitmap = Bitmap.createScaledBitmap(roiBitmap, 256, 256, true)
-                        val input = convertBitmapToByteBuffer(resizedRoiBitmap)
-
-                        val output = Array(1) { FloatArray(2) }
-                        tflite.run(input, output)
-
+                        var output = Array(1) { FloatArray(2) } //array of size 2
+                        output = seedPredictor.predictSeed(fullBitmap, ROI)
                         val endTime = System.currentTimeMillis()
                         inferenceTime = endTime - startTime // Calculate inference time
-
                         val roiWidth = roiBitmap.width
                         val roiHeight = roiBitmap.height
                         val predX_roi = (output[0][0] * roiWidth).toInt()
                         val predY_roi = (output[0][1] * roiHeight).toInt()
                         val predX_full = ROI[0] + predX_roi
                         val predY_full = ROI[2] + predY_roi
-
                         val frameWithPrediction = drawLabelOnPrediction(fullBitmap, predX_full, predY_full, ROI)
-
                         withContext(Dispatchers.Main) {
                             predictionText.text = "Prediction for slice $sliceNumber: ($predX_full, $predY_full) - Inference time: $inferenceTime ms"
                             (viewPager.adapter as SlicePagerAdapter).updateImage(position, frameWithPrediction)
@@ -89,28 +78,6 @@ class ModelScreen : AppCompatActivity() {
             override fun onPageScrollStateChanged(state: Int) {}
         })
     }
-    private fun loadModelFile(modelName: String): ByteBuffer {
-        val assetFileDescriptor = assets.openFd(modelName)
-        val inputStream = assetFileDescriptor.createInputStream()
-        val modelBuffer = ByteArray(assetFileDescriptor.length.toInt())
-        inputStream.read(modelBuffer)
-        return ByteBuffer.allocateDirect(modelBuffer.size).apply {
-            order(ByteOrder.nativeOrder())
-            put(modelBuffer)
-        }
-    }
-    private fun initializeTFLite(){
-        val options = Interpreter.Options().apply{
-            // enable gpu if available
-            if(GpuDelegateHelper().isGpuDelegateAvailable){
-                addDelegate(GpuDelegateHelper().createGpuDelegate())
-            }
-            useNNAPI = true
-            numThreads = 8
-        }
-        tflite = Interpreter(loadModelFile("breast_mri_model.tflite"), options)
-    }
-
     private fun loadBinSlice(fileName: String): Array<DoubleArray> {
         val fileSize = assets.open(fileName).available()
         val buffer = ByteBuffer.allocate(fileSize)
@@ -119,11 +86,9 @@ class ModelScreen : AppCompatActivity() {
             dataInputStream.readFully(buffer.array())
         }
         buffer.order(ByteOrder.nativeOrder())
-
         val width = 512
         val height = 512
         val slice = Array(height) { DoubleArray(width) }
-
         for (y in 0 until height) {
             for (x in 0 until width) {
                 slice[y][x] = buffer.double
@@ -170,12 +135,18 @@ class ModelScreen : AppCompatActivity() {
         val y_max = roi[3]
         val roiWidth = x_max - x_min
         val roiHeight = y_max - y_min
-
         return Array(roiHeight) { y ->
             DoubleArray(roiWidth) { x ->
                 slice[y + y_min][x + x_min]
             }
         }
+    }
+    private fun extractRoiFromBitmap(bitmap: Bitmap, roi: IntArray): Bitmap {
+        val x_min = roi[0]
+        val y_min = roi[2]
+        val x_max = roi[1]
+        val y_max = roi[3]
+        return Bitmap.createBitmap(bitmap, x_min, y_min, x_max - x_min, y_max - y_min)
     }
 
     private fun drawLabelOnPrediction(bitmap: Bitmap, x: Int, y: Int, roi: IntArray): Bitmap {
@@ -202,11 +173,11 @@ class ModelScreen : AppCompatActivity() {
 
         override fun getCount(): Int = 21 // Number of slices from 52 to 72
 
-        override fun isViewFromObject(view: android.view.View, `object`: Any): Boolean {
+        override fun isViewFromObject(view: View, `object`: Any): Boolean {
             return view === `object`
         }
 
-        override fun instantiateItem(container: android.view.ViewGroup, position: Int): Any {
+        override fun instantiateItem(container: ViewGroup, position: Int): Any {
             val imageView = ImageView(this@ModelScreen)
             imageView.scaleType = ImageView.ScaleType.FIT_CENTER
             imageView.tag = position // Set tag for easy access
@@ -214,8 +185,8 @@ class ModelScreen : AppCompatActivity() {
             return imageView
         }
 
-        override fun destroyItem(container: android.view.ViewGroup, position: Int, `object`: Any) {
-            container.removeView(`object` as android.view.View)
+        override fun destroyItem(container: ViewGroup, position: Int, `object`: Any) {
+            container.removeView(`object` as View)
         }
 
         fun updateImage(position: Int, bitmap: Bitmap) {

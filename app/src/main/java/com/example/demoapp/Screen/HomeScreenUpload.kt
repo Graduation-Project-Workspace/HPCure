@@ -16,6 +16,7 @@ import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.example.demoapp.Core.ParallelFuzzySystem
+import com.example.demoapp.Core.SeedPredictor
 import com.example.demoapp.Core.VolumeEstimator
 import com.example.demoapp.Model.CancerVolume
 import com.example.demoapp.Model.MRISequence
@@ -40,6 +41,7 @@ class HomeScreenUpload : AppCompatActivity() {
 
     private lateinit var loadingOverlay: RelativeLayout
     private lateinit var calculateButton: Button
+    private var context = this
 
     private val storagePermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -62,7 +64,6 @@ class HomeScreenUpload : AppCompatActivity() {
             requestStoragePermission()
         }
     }
-
     private fun checkStoragePermission(): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             Environment.isExternalStorageManager()
@@ -73,7 +74,6 @@ class HomeScreenUpload : AppCompatActivity() {
             ) == PackageManager.PERMISSION_GRANTED
         }
     }
-
     private fun requestStoragePermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             try {
@@ -93,7 +93,6 @@ class HomeScreenUpload : AppCompatActivity() {
             )
         }
     }
-
     private fun initializeApp() {
         initializeViews()
         setupImageNavigation()
@@ -115,7 +114,6 @@ class HomeScreenUpload : AppCompatActivity() {
 
         updateDisplay()
     }
-
     private fun setupCalculateButton() {
         calculateButton.setOnClickListener {
             showLoadingState()
@@ -131,7 +129,12 @@ class HomeScreenUpload : AppCompatActivity() {
                 val alphaCut = alphaCutValue.text.toString().replace("%", "").toFloat()
 
                 // Call estimateVolume
-                val volumeEstimator = VolumeEstimator(fuzzySystem = ParallelFuzzySystem())
+                val seedPredictor = SeedPredictor(context = context);
+                val volumeEstimator = VolumeEstimator(
+                    context = context,
+                    seedPredictor = seedPredictor,
+                    fuzzySystem = ParallelFuzzySystem()
+                )
                 mriSequence = MRISequence(
                     images = bitmaps,
                     metadata = HashMap()
@@ -149,7 +152,6 @@ class HomeScreenUpload : AppCompatActivity() {
             }
         }
     }
-
     private fun showLoadingState() {
         loadingOverlay.alpha = 0f
         loadingOverlay.visibility = View.VISIBLE
