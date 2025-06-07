@@ -14,7 +14,9 @@ import com.example.demoapp.Model.CancerVolume
 import com.example.demoapp.Model.MRISequence
 import com.example.demoapp.R
 
-class HomeScreenResults(private var mriSequence: MRISequence, private var cancerVolume: CancerVolume, private var alphaCut: Float) : Fragment() {
+class HomeScreenResults(private var mriSequence: MRISequence,
+                        private var cancerVolume: CancerVolume,
+                        private var alphaCut: Float) : Fragment() {
     private lateinit var mriImage: ImageView
     private lateinit var imageCount: TextView
     private lateinit var prevImage: ImageButton

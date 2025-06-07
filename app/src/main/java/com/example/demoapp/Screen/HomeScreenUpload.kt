@@ -132,7 +132,6 @@ class HomeScreenUpload : AppCompatActivity() {
                 // Call estimateVolume
                 val seedPredictor = SeedPredictor(context = context);
                 val volumeEstimator = VolumeEstimator(
-                    context = context,
                     seedPredictor = seedPredictor,
                     fuzzySystem = ParallelFuzzySystem()
                 )
@@ -140,14 +139,8 @@ class HomeScreenUpload : AppCompatActivity() {
                     images = bitmaps,
                     metadata = HashMap()
                 );
-              
-                val seedPredictor = SeedPredictor(context = context);
-                val volumeEstimator = VolumeEstimator(
-                    context = context,
-                    seedPredictor = seedPredictor,
-                    fuzzySystem = ParallelFuzzySystem()
-                )
-                val cancerVolume = volumeEstimator.estimateVolume(mriSequence, alphaCut)
+
+                cancerVolume = volumeEstimator.estimateVolume(mriSequence, alphaCut)
                 // Log the result
                 Log.d("VolumeEstimate", "Estimated Volume: ${cancerVolume.volume}")
 
