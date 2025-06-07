@@ -15,7 +15,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import com.example.demoapp.Core.SeedPredictor
+import com.example.demoapp.Core.ParallelFuzzySystem
 import com.example.demoapp.Core.VolumeEstimator
 import com.example.demoapp.Model.MRISequence
 import com.example.demoapp.R
@@ -125,16 +125,16 @@ class HomeScreenUpload : AppCompatActivity() {
                 val alphaCut = alphaCutValue.text.toString().replace("%", "").toFloat()
 
                 // Call estimateVolume
-                val seedPredictor = SeedPredictor(context = context)
-                val volumeEstimator = VolumeEstimator(context = context , seedPredictor = seedPredictor)
+
+
                 val mriSequence = MRISequence(
                     images = bitmaps,
                     metadata = HashMap()
                 );
-                val total_volume = volumeEstimator.estimateVolume(mriSequence, alphaCut)
+                val cancerVolume = volumeEstimator.estimateVolume(mriSequence, alphaCut)
 
                 // Log the result
-                Log.d("VolumeEstimate", "Estimated Volume: ${total_volume.volume}")
+                Log.d("VolumeEstimate", "Estimated Volume: ${cancerVolume.volume}")
 
                 // Update the UI on the main thread
                 withContext(Dispatchers.Main) {
