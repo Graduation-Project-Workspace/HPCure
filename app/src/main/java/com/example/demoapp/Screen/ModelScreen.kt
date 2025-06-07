@@ -24,6 +24,7 @@ class ModelScreen : AppCompatActivity() {
     private lateinit var seedPredictor: SeedPredictor
     private lateinit var viewPager: ViewPager
     private lateinit var predictionText: TextView
+    private val roiBitmaps = mutableListOf<Bitmap?>() // Allow nulls for uninitialized bitmaps
     @OptIn(ExperimentalCoroutinesApi::class)
     private val imageProcessingDispatcher = Dispatchers.Default.limitedParallelism(2)
     private val ROI = IntArray(4)

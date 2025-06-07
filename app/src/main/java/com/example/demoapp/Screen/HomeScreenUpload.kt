@@ -27,6 +27,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+
 @RequiresApi(Build.VERSION_CODES.N)
 class HomeScreenUpload : AppCompatActivity() {
     private lateinit var mriImage: ImageView
@@ -139,8 +140,14 @@ class HomeScreenUpload : AppCompatActivity() {
                     images = bitmaps,
                     metadata = HashMap()
                 );
-                cancerVolume = volumeEstimator.estimateVolume(mriSequence, alphaCut)
-
+              
+                val seedPredictor = SeedPredictor(context = context);
+                val volumeEstimator = VolumeEstimator(
+                    context = context,
+                    seedPredictor = seedPredictor,
+                    fuzzySystem = ParallelFuzzySystem()
+                )
+                val cancerVolume = volumeEstimator.estimateVolume(mriSequence, alphaCut)
                 // Log the result
                 Log.d("VolumeEstimate", "Estimated Volume: ${cancerVolume.volume}")
 

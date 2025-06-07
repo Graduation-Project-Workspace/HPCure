@@ -15,7 +15,6 @@ class SeedPredictor : ISeedPrecitor {
     private val assetManager: AssetManager
     private val roi = IntArray(4)
     constructor(context: Context) {
-        // Initialize the TFLite interpreter here
         assetManager = context.assets
         val options = Interpreter.Options().apply{
             //setUseDynamicShapes(true) //TODO
