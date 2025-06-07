@@ -16,6 +16,7 @@ import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.example.demoapp.Core.ParallelFuzzySystem
+import com.example.demoapp.Core.SeedPredictor
 import com.example.demoapp.Core.VolumeEstimator
 import com.example.demoapp.Model.MRISequence
 import com.example.demoapp.R
@@ -24,6 +25,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
 
 @RequiresApi(Build.VERSION_CODES.N)
 class HomeScreenUpload : AppCompatActivity() {
@@ -131,8 +133,13 @@ class HomeScreenUpload : AppCompatActivity() {
                     images = bitmaps,
                     metadata = HashMap()
                 );
+                val seedPredictor = SeedPredictor(context = context);
+                val volumeEstimator = VolumeEstimator(
+                    context = context,
+                    seedPredictor = seedPredictor,
+                    fuzzySystem = ParallelFuzzySystem()
+                )
                 val cancerVolume = volumeEstimator.estimateVolume(mriSequence, alphaCut)
-
                 // Log the result
                 Log.d("VolumeEstimate", "Estimated Volume: ${cancerVolume.volume}")
 

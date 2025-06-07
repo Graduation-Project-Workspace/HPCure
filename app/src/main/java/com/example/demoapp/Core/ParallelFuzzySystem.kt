@@ -39,9 +39,7 @@ class ParallelFuzzySystem : IFuzzySystem {
 
     fun calculateVolume(img: Bitmap, seed: Pair<Int, Int>, roi : ROI): Int {
         // TODO: appy pre processing to the image
-
         val affinity_matrix_array = FuzzyConnectedness(img, roi, listOf(seed)).run();
-
         return affinity_matrix_array.count { it >= _alphaCutValue / 100.0 };
     }
 }
