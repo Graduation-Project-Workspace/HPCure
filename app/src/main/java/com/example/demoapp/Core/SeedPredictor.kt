@@ -17,7 +17,6 @@ class SeedPredictor : ISeedPrecitor {
     constructor(context: Context) {
         assetManager = context.assets
         val options = Interpreter.Options().apply{
-            //setUseDynamicShapes(true) //TODO
             if(GpuDelegateHelper().isGpuDelegateAvailable){
                 addDelegate(GpuDelegateHelper().createGpuDelegate())
             }
@@ -37,6 +36,7 @@ class SeedPredictor : ISeedPrecitor {
         val input = convertBitmapToByteBuffer(resizedRoiBitmap)
         val output = Array(1) { FloatArray(2)}
         tflite.run(input, output)
+        Log.d("SeedPredictor", "Predicted seed point: (${output[0][0]}, ${output[0][1]})")
         return output
     }
     private fun extractRoiFromBitmap(bitmap: Bitmap, roi: IntArray): Bitmap {
