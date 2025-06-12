@@ -16,6 +16,7 @@ import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.example.demoapp.Core.ParallelFuzzySystem
+import com.example.demoapp.Core.RoiPredictor
 import com.example.demoapp.Core.SeedPredictor
 import com.example.demoapp.Core.VolumeEstimator
 import com.example.demoapp.Model.CancerVolume
@@ -131,9 +132,13 @@ class HomeScreenUpload : AppCompatActivity() {
 
                 // Call estimateVolume
                 val seedPredictor = SeedPredictor(context = context);
+                Log.d("SeedPredictor", "Initialized SeedPredictor")
+                val roiPredictor = RoiPredictor(context = context);
+                Log.d("RoiPredictor", "Initialized RoiPredictor")
                 val volumeEstimator = VolumeEstimator(
                     seedPredictor = seedPredictor,
-                    fuzzySystem = ParallelFuzzySystem()
+                    fuzzySystem = ParallelFuzzySystem(),
+                    roiPredictor = roiPredictor
                 )
                 mriSequence = MRISequence(
                     images = bitmaps,
