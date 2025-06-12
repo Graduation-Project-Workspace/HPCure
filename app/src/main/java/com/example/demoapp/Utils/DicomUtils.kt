@@ -9,7 +9,6 @@ import java.io.File
 import java.io.IOException
 import kotlin.math.max
 import kotlin.math.min
-
 object DicomUtils {
     private const val TAG = "DicomUtils"
 
