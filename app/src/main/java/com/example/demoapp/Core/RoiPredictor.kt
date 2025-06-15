@@ -11,33 +11,74 @@ import org.tensorflow.lite.Interpreter
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import androidx.core.graphics.scale
+import kotlin.math.max
+import kotlin.math.min
 
 class RoiPredictor : IRoiPredictor {
     private lateinit var tflite: Interpreter
     private val assetManager: AssetManager
-      constructor(context: Context) {
+    private val inputSize = 512 // Model expects 512x512 input
+    private val outputShape = intArrayOf(1, 5, 5376) // Based on Python output shape
+
+    constructor(context: Context) {
         assetManager = context.assets
-        val options = Interpreter.Options().apply{
-            if(GpuDelegateHelper().isGpuDelegateAvailable){
+        val options = Interpreter.Options().apply {
+            if(GpuDelegateHelper().isGpuDelegateAvailable) {
                 addDelegate(GpuDelegateHelper().createGpuDelegate())
             }
             useNNAPI = true
             setNumThreads(4)
         }
         tflite = Interpreter(loadModelFile("breast_roi_model.tflite"), options)
+
+        // Log input/output details for debugging
         val inputTensor = tflite.getInputTensor(0)
-        Log.d("ModelInput", "Shape: ${inputTensor.shape().contentToString()}")
+        val outputTensor = tflite.getOutputTensor(0)
+        Log.d("ModelDetails", "Input shape: ${inputTensor.shape().contentToString()}")
+        Log.d("ModelDetails", "Output shape: ${outputTensor.shape().contentToString()}")
     }
-    override fun predictRoi(
-        sliceBitmap: Bitmap,
-    ): Array<FloatArray> {
-        val resizedBitmap = sliceBitmap.scale(128, 128)
-        val input = convertBitmapToByteBuffer(resizedBitmap)
-        val output = Array(1) { FloatArray(4) } // Assuming the model outputs 4 values for ROI
-        tflite.run(input, output)
-        Log.d("RoiPredictor", "Predicted ROI: ${output[0].contentToString()}")
-        return output
+
+    override fun predictRoi(sliceBitmap: Bitmap): Array<FloatArray> {
+        // Resize to model input size (512x512)
+        val resizedBitmap = sliceBitmap.scale(inputSize, inputSize)
+
+        // Convert bitmap to normalized float array with CHW format (3, 512, 512)
+        val inputBuffer = convertBitmapToFloatBuffer(resizedBitmap)
+
+        // Prepare output array based on model's output shape (1, 5, 5376)
+        val output = Array(1) { Array(5) { FloatArray(5376) } }
+
+        // Run inference
+        tflite.run(inputBuffer, output)
+
+        // Find the box with highest confidence
+        val confidences = output[0][4] // Confidence scores are at index 4
+        var maxConfIdx = 0
+        var maxConf = 0f
+
+        for (i in confidences.indices) {
+            if (confidences[i] > maxConf) {
+                maxConf = confidences[i]
+                maxConfIdx = i
+            }
+        }
+
+        // Extract ROI coordinates
+        val xCenter = output[0][0][maxConfIdx]
+        val yCenter = output[0][1][maxConfIdx]
+        val width = output[0][2][maxConfIdx]
+        val height = output[0][3][maxConfIdx]
+
+        Log.d("RoiPredictor", "Predicted ROI: x=$xCenter, y=$yCenter, w=$width, h=$height, conf=$maxConf")
+
+        // Return as array of FloatArray (you might want to adjust this based on your needs)
+        // convert to normalized coordinates
+
+        return arrayOf(
+            floatArrayOf(xCenter, yCenter, width, height, maxConf)
+        )
     }
+
     private fun loadModelFile(modelName: String): ByteBuffer {
         val assetFileDescriptor = assetManager.openFd(modelName)
         val inputStream = assetFileDescriptor.createInputStream()
@@ -48,28 +89,55 @@ class RoiPredictor : IRoiPredictor {
             put(modelBuffer)
         }
     }
-    private fun convertBitmapToByteBuffer(bitmap: Bitmap): ByteBuffer {
-        // Allocate buffer for 128x128 grayscale image (4 bytes per float)
-        val inputBuffer = ByteBuffer.allocateDirect(128 * 128 * 1 * 4)
+
+    private fun convertBitmapToFloatBuffer(bitmap: Bitmap): ByteBuffer {
+        val inputBuffer = ByteBuffer.allocateDirect(1 * 3 * 512 * 512 * 4)
         inputBuffer.order(ByteOrder.nativeOrder())
 
-        // Get all pixels at once for better performance
-        val pixels = IntArray(128 * 128)
-        bitmap.getPixels(pixels, 0, 128, 0, 0, 128, 128)
+        val pixels = IntArray(512 * 512)
+        bitmap.getPixels(pixels, 0, 512, 0, 0, 512, 512)
 
-        // Convert each pixel to grayscale and normalize to [0,1]
-        for (pixel in pixels) {
-            // Proper RGB to grayscale conversion (NTSC formula)
-            val r = Color.red(pixel) / 255.0f
-            val g = Color.green(pixel) / 255.0f
-            val b = Color.blue(pixel) / 255.0f
-            val grayscale = 0.299f * r + 0.587f * g + 0.114f * b
+        val rChannel = FloatArray(512 * 512)
+        val gChannel = FloatArray(512 * 512)
+        val bChannel = FloatArray(512 * 512)
 
-            inputBuffer.putFloat(grayscale)
+        for (i in pixels.indices) {
+            val pixel = pixels[i]
+            rChannel[i] = Color.red(pixel) / 255.0f
+            gChannel[i] = Color.green(pixel) / 255.0f
+            bChannel[i] = Color.blue(pixel) / 255.0f
         }
 
-        // Rewind buffer before returning (important!)
+        // Fill buffer in CHW order
+        rChannel.forEach { inputBuffer.putFloat(it) }
+        gChannel.forEach { inputBuffer.putFloat(it) }
+        bChannel.forEach { inputBuffer.putFloat(it) }
+
         inputBuffer.rewind()
         return inputBuffer
+    }
+
+
+    // Helper function to convert the normalized coordinates to pixel coordinates
+    fun convertToPixelCoordinates(
+        xCenter: Float,
+        yCenter: Float,
+        width: Float,
+        height: Float,
+        originalWidth: Int,
+        originalHeight: Int
+    ): IntArray {
+        val boxX = (xCenter * originalWidth).toInt()
+        val boxY = (yCenter * originalHeight).toInt()
+        val boxW = (width * originalWidth).toInt()
+        val boxH = (height * originalHeight).toInt()
+
+        // Calculate top-left and bottom-right corners
+        val x1 = max(0, boxX - boxW / 2)
+        val y1 = max(0, boxY - boxH / 2)
+        val x2 = min(originalWidth - 1, boxX + boxW / 2)
+        val y2 = min(originalHeight - 1, boxY + boxH / 2)
+
+        return intArrayOf(x1, y1, x2, y2)
     }
 }
