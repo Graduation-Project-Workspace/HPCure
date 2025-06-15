@@ -40,8 +40,8 @@ class VolumeEstimator(private val fuzzySystem: IFuzzySystem,
 
             ROI(
                 xMin = x1,
-                xMax = x2,
-                yMin = y1,
+                yMin = x2,
+                xMax = y1,
                 yMax = y2
             )
         }
@@ -50,9 +50,17 @@ class VolumeEstimator(private val fuzzySystem: IFuzzySystem,
             val bitmap = mriSeq.images[i]
             val roi = roiList[i]
             Log.d("ROI", "Image $i ROI: (${roi.xMin}, ${roi.yMin}) to (${roi.xMax}, ${roi.yMax})")
-            val seedPoint = seedPredictor.predictSeed(bitmap, intArrayOf(roi.xMin, roi.xMax, roi.yMin, roi.yMax))
-            seedPoint[0][0] = seedPoint[0][0] * (roi.xMax - roi.xMin) + roi.xMin // Scale the seed point to the ROI dimensions
-            seedPoint[0][1] = seedPoint[0][1] * (roi.yMax - roi.yMin) + roi.yMin // Scale the seed point to the ROI dimensions
+
+            // Pass ROI as [x1, y1, x2, y2] — top-left and bottom-right
+            val seedPoint = seedPredictor.predictSeed(
+                bitmap,
+                intArrayOf(roi.xMin, roi.yMin, roi.xMax, roi.yMax)
+            )
+
+            // Scale the seed point from relative ROI [0-1] to full image coordinates
+            seedPoint[0][0] = seedPoint[0][0] * (roi.xMax - roi.xMin) + roi.xMin
+            seedPoint[0][1] = seedPoint[0][1] * (roi.yMax - roi.yMin) + roi.yMin
+
             Log.d("SeedPoint", "Seed point for image $i: (${seedPoint[0][0]}, ${seedPoint[0][1]})")
             seedPoints.add(Pair(seedPoint[0][0].toInt(), seedPoint[0][1].toInt()))
         }
