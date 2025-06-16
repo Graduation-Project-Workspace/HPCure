@@ -131,13 +131,8 @@
                 android:layout_above="@id/button_group"
                 android:layout_marginTop="24dp"
                 android:layout_marginBottom="24dp"
-                android:layout_marginHorizontal="16dp">
-
-                <View
-                    android:id="@+id/rectangle_3"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:background="@drawable/image_container_background" />
+                android:layout_marginHorizontal="16dp"
+                android:background="@drawable/image_container_background">
 
                 <TextView
                     android:id="@+id/image_count"

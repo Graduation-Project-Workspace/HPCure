@@ -5,6 +5,10 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.Color
 import android.os.Bundle
 import android.os.Environment
 import android.provider.Settings
@@ -44,11 +48,14 @@ class RoiScreen : AppCompatActivity() {
     private lateinit var btnSerial: Button
     private lateinit var btnGrpc: Button
     private lateinit var mainContent: RelativeLayout
+    private lateinit var patientName: TextView
+
 
     private lateinit var cancerVolume: CancerVolume
     private lateinit var mriSequence: MRISequence
     private var selectedMode: String = "Parallel"
 
+    private val roiMap = mutableMapOf<Int, FloatArray>()
     private val context = this
 
     private val storagePermissionLauncher = registerForActivityResult(
@@ -143,6 +150,8 @@ class RoiScreen : AppCompatActivity() {
         btnParallel = findViewById(R.id.btn_parallel)
         btnSerial = findViewById(R.id.btn_serial)
         btnGrpc = findViewById(R.id.btn_grpc)
+        patientName = findViewById(R.id.patient_name)
+
     }
 
     private fun setupOptionsPopup() {
@@ -198,6 +207,7 @@ class RoiScreen : AppCompatActivity() {
         predictButton.setOnClickListener {
             showLoadingState()
             CoroutineScope(Dispatchers.IO).launch {
+                val startTime = System.currentTimeMillis()
                 val bitmaps = FileManager.getAllFiles().mapNotNull { file ->
                     FileManager.getProcessedImage(this@RoiScreen, file)
                 }
@@ -209,14 +219,20 @@ class RoiScreen : AppCompatActivity() {
                     fuzzySystem = fuzzySystem,
                     roiPredictor = roiPredictor
                 )
-                mriSequence = MRISequence(
-                    images = bitmaps,
-                    metadata = HashMap()
-                )
-//                cancerVolume = volumeEstimator.estimateVolume(mriSequence)
+
+                mriSequence = MRISequence(images = bitmaps, metadata = HashMap())
+
+                bitmaps.mapIndexed { index, bitmap ->
+                    val roi = roiPredictor.predictRoi(bitmap)
+                    roiMap[index] = roi[0]
+                }
+                val endTime = System.currentTimeMillis()
+                val timeTaken = endTime - startTime
+
                 withContext(Dispatchers.Main) {
                     hideLoadingState()
-//                    navigateToResults()
+                    loadCurrentImage()
+                    patientName.text = "Time Taken: $timeTaken ms"
                 }
             }
         }
@@ -245,17 +261,39 @@ class RoiScreen : AppCompatActivity() {
 
     private fun loadCurrentImage() {
         val file = FileManager.getCurrentFile()
+        val index = FileManager.getCurrentIndex() - 1
         file?.let {
             val bitmap = FileManager.getProcessedImage(this, it)
             if (bitmap != null) {
+                val displayBitmap = roiMap[index]?.let { roi ->
+                    drawRoiRectangleOnBitmap(bitmap, roi)
+                } ?: bitmap
+
                 mriImage.apply {
-                    setImageBitmap(bitmap)
+                    setImageBitmap(displayBitmap)
                     scaleType = ImageView.ScaleType.FIT_CENTER
                     adjustViewBounds = true
                 }
             }
         }
         updateNavigationButtons()
+    }
+
+    private fun drawRoiRectangleOnBitmap(originalBitmap: Bitmap, roi: FloatArray): Bitmap {
+        val left = (roi[0] * originalBitmap.width).toInt()
+        val top = (roi[1] * originalBitmap.height).toInt()
+        val right = (roi[2] * originalBitmap.width).toInt()
+        val bottom = (roi[3] * originalBitmap.height).toInt()
+
+        val mutableBitmap = originalBitmap.copy(Bitmap.Config.ARGB_8888, true)
+        val canvas = Canvas(mutableBitmap)
+        val paint = Paint().apply {
+            color = Color.RED
+            style = Paint.Style.STROKE
+            strokeWidth = 4f
+        }
+        canvas.drawRect(left.toFloat(), top.toFloat(), right.toFloat(), bottom.toFloat(), paint)
+        return mutableBitmap
     }
 
     private fun setupImageNavigation() {
