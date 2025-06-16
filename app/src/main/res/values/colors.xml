@@ -2,5 +2,6 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
-    <color name="splash_background">#04363A</color> <!-- Change to your desired color -->
+    <color name="splash_background">#04363A</color>
+    <color name="your_spinner_color">#FFFFFF</color>
 </resources>

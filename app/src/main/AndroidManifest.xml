@@ -22,12 +22,12 @@
         android:requestLegacyExternalStorage="true"
         tools:targetApi="31">
 
-        <activity android:name=".Screen.HomeScreenUpload"
+        <activity android:name=".Screen.RoiScreen"
             android:exported="true"
             android:theme="@style/Theme.AppCompat.Light.NoActionBar"
             />
 
-        <activity android:name=".Screen.HomeScreen"
+        <activity android:name=".Screen.UploadScreen"
             android:exported="true"
             android:theme="@style/Theme.AppCompat.Light.NoActionBar"
             />

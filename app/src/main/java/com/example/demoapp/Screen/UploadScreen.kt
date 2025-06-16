@@ -9,8 +9,8 @@ import android.provider.DocumentsContract
 import android.util.Log
 import android.widget.Button
 import android.widget.ImageView
-import android.widget.RelativeLayout
-import android.widget.Toast
+import android.view.View
+import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import com.example.demoapp.R
 import com.example.demoapp.Utils.FileManager
@@ -19,111 +19,27 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-
-class HomeScreen : AppCompatActivity() {
+class UploadScreen : AppCompatActivity() {
     private val PICK_DIRECTORY_REQUEST_CODE = 1
     private lateinit var uploadedImage: ImageView
+    private lateinit var loadingOverlay: FrameLayout
     private val PERMISSION_REQUEST_CODE = 123
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.home_screen)
+        setContentView(R.layout.upload_screen)
         FileManager.initialize(this)
 
-//        benchmark()
-
         val uploadContainer: RelativeLayout = findViewById(R.id.upload_container)
-        val processButton: Button = findViewById(R.id.process_button)
         uploadedImage = findViewById(R.id.uploaded_image)
-
+        loadingOverlay = findViewById(R.id.loading_overlay)
         uploadContainer.setOnClickListener {
-//            checkAndRequestPermissions()
             openDirectoryPicker()
         }
-
-        processButton.setOnClickListener {
-            if (FileManager.getTotalFiles() > 0) {
-                val intent = Intent(this, HomeScreenUpload::class.java)
-                startActivity(intent)
-            } else {
-                showToast("Please select a DICOM directory first")
-            }
-        }
-        val nextButton: Button = findViewById(R.id.go_to_next_screen)
-        nextButton.setOnClickListener {
-            val intent = Intent(this, ModelScreen::class.java)
-            startActivity(intent)
-        }
-
     }
-
-//    external fun doOps(ops: Long) : Long;
-//
-//    companion object {
-//        init {
-//            System.loadLibrary("demoapp")
-//        }
-//    }
-
-//    private fun benchmark() {
-//        val jobCounts = listOf(3, 50, 100, 1000);
-//        val ops = listOf(1e6.toInt(), 1e7.toInt(), 1e8.toInt(), 1e9.toInt());
-//        val idleTimes = listOf(1000, 10000);
-//
-//
-//        for(op in ops){
-//            var time = measureTimeMillis {
-//                val result = doOps(op.toLong())
-//            }
-//            Log.d("ExecutionTime", "Execution time (Native), $op ops: $time ms")
-//
-//            time = measureTimeMillis {
-//                var sum = 0;
-//                for(i in 1..op) {
-//                    sum += i
-//                }
-//            }
-//            Log.d("ExecutionTime", "Execution time (Sequential), $op ops: $time ms")
-//        }
-
-
-//        for (jobCount in jobCounts){
-//            for(idleTime in idleTimes){
-//                val concurrencyDemo = ConcurrencyDemo()
-//                concurrencyDemo.runIdleTasks(jobCount, idleTime)
-//
-//                val parallelizeDemo = ParallelizeDemo()
-//                parallelizeDemo.runIdleTasks(jobCount, idleTime)
-//            }
-//        }
-
-//        for (jobCount in jobCounts) {
-//            for (op in ops) {
-//                val concurrencyDemo = ConcurrencyDemo()
-//                concurrencyDemo.main(jobCount, op)
-//
-//                val parallelizeDemo = ParallelizeDemo()
-//                parallelizeDemo.main(jobCount, op)
-//
-//                if(jobCount.toLong() * op.toLong() > 1e10.toLong())
-//                    break
-//
-//                val time = measureTimeMillis {
-//                    for(t in 1..jobCount) {
-//                        var sum = 0;
-//                        for (i in 1..op) {
-//                            sum += i
-//                        }
-//                    }
-//                }
-//                Log.d("ExecutionTime", "Execution time (Sequential), $jobCount jobs, $op ops: $time ms")
-//            }
-//        }
-//    }
 
     private fun openDirectoryPicker() {
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
-        // Suggest the Downloads directory as a starting point
         intent.putExtra("android.provider.extra.INITIAL_URI",
             "content://com.android.externalstorage.documents/document/primary:Download")
         startActivityForResult(intent, PICK_DIRECTORY_REQUEST_CODE)
@@ -150,6 +66,7 @@ class HomeScreen : AppCompatActivity() {
     }
 
     private fun handleDicomDirectory(uri: Uri) {
+        showLoading()
         CoroutineScope(Dispatchers.Main).launch {
             try {
                 val success = withContext(Dispatchers.IO) {
@@ -159,34 +76,32 @@ class HomeScreen : AppCompatActivity() {
                                 Intent.FLAG_GRANT_WRITE_URI_PERMISSION
                         contentResolver.takePersistableUriPermission(uri, takeFlags)
 
-                        FileManager.loadDirectory(this@HomeScreen, uri)
+                        val result = FileManager.loadDirectory(this@UploadScreen, uri)
+                        val fileCount = FileManager.getTotalFiles()
+                        Log.d("UploadScreen", "Files loaded: $fileCount")
+                        result && fileCount > 0
                     } catch (e: Exception) {
-                        Log.e("HomeScreen", "Error in loadDirectory", e)
+                        Log.e("UploadScreen", "Error in loadDirectory", e)
                         false
                     }
                 }
+                hideLoading()
 
                 if (success) {
-                    FileManager.getCurrentFile()?.let { file ->
-                        try {
-                            val bitmap = FileManager.getProcessedImage(this@HomeScreen, file)
-                            bitmap?.let {
-                                uploadedImage.setImageBitmap(it)
-                                uploadedImage.visibility = ImageView.VISIBLE
-                                showToast("DICOM directory loaded successfully")
-                            } ?: run {
-                                showErrorDialog("Failed to process image")
-                            }
-                        } catch (e: Exception) {
-                            Log.e("HomeScreen", "Error processing image", e)
-                            showErrorDialog("Error processing image: ${e.message}")
-                        }
-                    }
+                    Log.d("UploadScreen", "Moving to RoiScreen with ${FileManager.getTotalFiles()} files")
+
+                    // Directly go to the next screen
+                    val intent = Intent(this@UploadScreen, RoiScreen::class.java)
+                    startActivity(intent)
+
+                    // Don't finish the activity yet - let them go back if needed
+                    // finish()
                 } else {
-                    showErrorDialog("Couldn't process your files. Please try again.")
+                    showErrorDialog("No valid DICOM files found in the selected directory.")
                 }
             } catch (e: Exception) {
-                Log.e("HomeScreen", "Error in handleDicomDirectory", e)
+                hideLoading()
+                Log.e("UploadScreen", "Error in handleDicomDirectory", e)
                 showErrorDialog("Error processing directory: ${e.message}")
             }
         }
@@ -226,7 +141,15 @@ class HomeScreen : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        FileManager.cleanup()
+        FileManager.cleanupTemporary()
+    }
+
+    private fun showLoading() {
+        loadingOverlay.visibility = View.VISIBLE
+    }
+
+    private fun hideLoading() {
+        loadingOverlay.visibility = View.GONE
     }
 
     private fun showErrorDialog(message: String) {
@@ -236,5 +159,4 @@ class HomeScreen : AppCompatActivity() {
     private fun showToast(message: String) {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
-
 }

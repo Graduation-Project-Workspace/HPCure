@@ -22,25 +22,62 @@ object FileManager {
     }
 
     fun loadDirectory(context: Context, uri: Uri): Boolean {
-        clearCache()
-        dicomFiles.clear()
-        currentIndex = 0
+        try {
+            dicomFiles.clear()
+            currentIndex = 0
 
-        return try {
-            // Take persistent permissions
-            val takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION or
-                    Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-            context.contentResolver.takePersistableUriPermission(uri, takeFlags)
-
+            // Load all files from the directory
             val docId = DocumentsContract.getTreeDocumentId(uri)
             val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(uri, docId)
 
-            processDirectory(context, uri, childrenUri)
-            dicomFiles.isNotEmpty()
+            val cursor = context.contentResolver.query(
+                childrenUri,
+                arrayOf(
+                    DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                    DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                    DocumentsContract.Document.COLUMN_MIME_TYPE
+                ),
+                null, null, null
+            )
+
+            cursor?.use { c ->
+                while (c.moveToNext()) {
+                    val documentId = c.getString(0)
+                    val name = c.getString(1)
+                    val mimeType = c.getString(2)
+
+                    // Only include DICOM files or handle by extension
+                    if (name.endsWith(".dcm", ignoreCase = true)) {
+                        val documentUri = DocumentsContract.buildDocumentUriUsingTree(uri, documentId)
+                        val tempFile = createTempFile(context, documentUri, name)
+                        dicomFiles.add(tempFile)
+                    }
+                }
+            }
+
+            // Sort files by name to ensure consistent order
+            dicomFiles.sortBy { it.name }
+            return dicomFiles.isNotEmpty()
         } catch (e: Exception) {
             Log.e("FileManager", "Error loading directory", e)
-            false
+            return false
         }
+    }
+
+    // Helper function to get file name from URI
+    private fun getFileName(context: Context, uri: Uri): String {
+        val cursor = context.contentResolver.query(
+            uri,
+            arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME),
+            null, null, null
+        )
+
+        cursor?.use {
+            if (it.moveToFirst()) {
+                return it.getString(0)
+            }
+        }
+        return uri.lastPathSegment ?: ""
     }
 
     private fun processDirectory(context: Context, treeUri: Uri, childrenUri: Uri) {
@@ -174,6 +211,11 @@ object FileManager {
     fun getCurrentIndex(): Int = currentIndex + 1
 
     fun getTotalFiles(): Int = dicomFiles.size
+
+    fun cleanupTemporary() {
+        // Only clear cache without resetting files array
+        clearCache()
+    }
 
     private fun clearCache() {
         cacheDir.listFiles()?.forEach { it.delete() }
