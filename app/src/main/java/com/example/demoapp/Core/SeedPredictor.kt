@@ -4,13 +4,13 @@ import android.content.Context
 import android.content.res.AssetManager
 import android.graphics.Bitmap
 import android.util.Log
-import com.example.demoapp.Core.Interfaces.ISeedPrecitor
+import com.example.domain.interfaces.ISeedPredictor
 import com.example.demoapp.Utils.GpuDelegateHelper
 import org.tensorflow.lite.Interpreter
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
-class SeedPredictor : ISeedPrecitor {
+class SeedPredictor : ISeedPredictor {
     private lateinit var tflite: Interpreter
     private val assetManager: AssetManager
     private val roi = IntArray(4)

@@ -4,10 +4,10 @@ import android.graphics.Bitmap
 import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
-import com.example.demoapp.Core.Interfaces.IFuzzySystem
-import com.example.demoapp.Model.CancerVolume
-import com.example.demoapp.Model.MRISequence
-import com.example.demoapp.Model.ROI
+import com.example.domain.interfaces.IFuzzySystem
+import com.example.domain.model.CancerVolume
+import com.example.domain.model.MRISequence
+import com.example.domain.model.ROI
 import kotlinx.coroutines.runBlocking
 import kotlin.system.measureTimeMillis
 

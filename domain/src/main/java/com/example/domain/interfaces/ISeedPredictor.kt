@@ -1,0 +1,10 @@
+package com.example.domain.interfaces
+
+import android.graphics.Bitmap
+
+interface ISeedPredictor {
+    fun predictSeed(
+        slice_bitmap: Bitmap,
+        roi: IntArray
+    ): Array<FloatArray>
+}

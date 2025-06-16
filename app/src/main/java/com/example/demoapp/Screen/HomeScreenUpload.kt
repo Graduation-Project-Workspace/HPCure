@@ -19,8 +19,8 @@ import com.example.demoapp.Core.ParallelFuzzySystem
 import com.example.demoapp.Core.RoiPredictor
 import com.example.demoapp.Core.SeedPredictor
 import com.example.demoapp.Core.VolumeEstimator
-import com.example.demoapp.Model.CancerVolume
-import com.example.demoapp.Model.MRISequence
+import com.example.domain.model.CancerVolume
+import com.example.domain.model.MRISequence
 import com.example.demoapp.R
 import com.example.demoapp.Utils.FileManager
 import kotlinx.coroutines.CoroutineScope
