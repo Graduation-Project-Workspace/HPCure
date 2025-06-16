@@ -41,8 +41,8 @@ class SeedPredictor : ISeedPrecitor {
     }
     private fun extractRoiFromBitmap(bitmap: Bitmap, roi: IntArray): Bitmap {
         val x_min = roi[0]
-        val y_min = roi[2]
-        val x_max = roi[1]
+        val y_min = roi[1]
+        val x_max = roi[2]
         val y_max = roi[3]
         return Bitmap.createBitmap(bitmap, x_min, y_min, x_max - x_min, y_max - y_min)
     }

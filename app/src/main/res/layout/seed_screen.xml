@@ -226,7 +226,7 @@
                     android:id="@+id/confirm_roi_button"
                     android:layout_width="100dp"
                     android:layout_height="match_parent"
-                    android:text="Confirm ROI"
+                    android:text="Confirm Seed"
                     android:textColor="#000000"
                     android:textStyle="bold"
                     android:background="@drawable/button_background"

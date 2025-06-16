@@ -32,6 +32,11 @@
             android:theme="@style/Theme.AppCompat.Light.NoActionBar"
             />
 
+        <activity android:name=".Screen.SeedScreen"
+            android:exported="true"
+            android:theme="@style/Theme.AppCompat.Light.NoActionBar"
+            />
+
         <!-- SplashActivity should be the ONLY Launcher Activity -->
         <activity
             android:name=".Screen.SplashActivity"
