@@ -20,8 +20,22 @@ import com.example.network.ui.MainViewModelFactory
 import com.example.demoapp.Core.RoiPredictor
 import com.example.demoapp.Core.SeedPredictor
 
+// Shared singleton for MainViewModel to persist logs across activities
+object SharedViewModel {
+    private var instance: MainViewModel? = null
+    
+    fun getInstance(context: FragmentActivity): MainViewModel {
+        if (instance == null) {
+            val roiPredictor = RoiPredictor(context)
+            val seedPredictor = SeedPredictor(context)
+            instance = MainViewModelFactory(context, roiPredictor, seedPredictor)
+                .create(MainViewModel::class.java)
+        }
+        return instance!!
+    }
+}
+
 abstract class BaseActivity : FragmentActivity() {
-    private lateinit var viewModel: MainViewModel
     private var drawerStateCompose by mutableStateOf(false)
 
     fun openDrawer() {
@@ -30,10 +44,7 @@ abstract class BaseActivity : FragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val roiPredictor = RoiPredictor(this)
-        val seedPredictor = SeedPredictor(this)
-        viewModel = MainViewModelFactory(this, roiPredictor, seedPredictor)
-            .create(MainViewModel::class.java)
+        val viewModel = SharedViewModel.getInstance(this)
 
         setContent {
             MaterialTheme {
