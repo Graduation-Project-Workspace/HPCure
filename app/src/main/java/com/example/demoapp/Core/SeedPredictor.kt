@@ -40,12 +40,22 @@ class SeedPredictor : ISeedPredictor {
         return output
     }
     private fun extractRoiFromBitmap(bitmap: Bitmap, roi: IntArray): Bitmap {
-        val x_min = roi[0]
-        val y_min = roi[2]
-        val x_max = roi[1]
-        val y_max = roi[3]
-        return Bitmap.createBitmap(bitmap, x_min, y_min, x_max - x_min, y_max - y_min)
+        var xMin = roi[0]
+        var xMax = roi[1]
+        var yMin = roi[2]
+        var yMax = roi[3]
+        // fixed extract roi from bitmap
+        xMin = xMin.coerceIn(0, bitmap.width - 1)
+        xMax = xMax.coerceIn(xMin + 1, bitmap.width)
+        yMin = yMin.coerceIn(0, bitmap.height - 1)
+        yMax = yMax.coerceIn(yMin + 1, bitmap.height)
+
+        val width = (xMax - xMin).coerceAtLeast(1)
+        val height = (yMax - yMin).coerceAtLeast(1)
+
+        return Bitmap.createBitmap(bitmap, xMin, yMin, width, height)
     }
+
     private fun convertBitmapToByteBuffer(bitmap: Bitmap): ByteBuffer {
         val inputBuffer = ByteBuffer.allocateDirect(256 * 256 * 4)
         inputBuffer.order(ByteOrder.nativeOrder())
