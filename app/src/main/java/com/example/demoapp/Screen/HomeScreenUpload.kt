@@ -21,8 +21,7 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.material3.*
-import androidx.fragment.app.FragmentActivity
+import androidx.appcompat.app.AppCompatActivity
 import com.example.demoapp.Core.ParallelFuzzySystem
 import com.example.demoapp.Core.RoiPredictor
 import com.example.demoapp.Core.SeedPredictor
@@ -39,7 +38,7 @@ import kotlinx.coroutines.withContext
 
 
 @RequiresApi(Build.VERSION_CODES.N)
-class HomeScreenUpload : BaseActivity() {
+class HomeScreenUpload : AppCompatActivity() {
     private lateinit var mriImage: ImageView
     private lateinit var alphaCutValue: TextView
     private lateinit var alphaCutSlider: SeekBar
@@ -74,50 +73,13 @@ class HomeScreenUpload : BaseActivity() {
         network = GrpcNetwork(logs, this, roiPredictor, seedPredictor)
 
         super.onCreate(savedInstanceState)
+        setContentView(R.layout.hs_upload)
 
         if (checkStoragePermission()) {
             initializeApp()
         } else {
             requestStoragePermission()
         }
-    }
-
-    override fun getScreenTitle(): String = "Volume Estimation"
-
-    override fun getMainContent(): @Composable () -> Unit = {
-        AndroidView(
-            factory = { context ->
-                ComposeView(context).apply {
-                    setContent {
-                        MaterialTheme {
-                            Surface(
-                                modifier = Modifier.fillMaxSize(),
-                                color = MaterialTheme.colorScheme.background
-                            ) {
-                                setContentView(R.layout.hs_upload)
-                                
-                                // Initialize views after setting content
-                                mriImage = findViewById(R.id.mri_image)
-                                alphaCutValue = findViewById(R.id.alpha_cut_value)
-                                alphaCutSlider = findViewById(R.id.alpha_cut_slider)
-                                imageCount = findViewById(R.id.image_count)
-                                prevImage = findViewById(R.id.prev_image)
-                                nextImage = findViewById(R.id.next_image)
-                                calculateButton = findViewById(R.id.calculate_volume)
-                                loadingOverlay = findViewById(R.id.loading_overlay)
-
-                                // Setup UI components
-                                setupImageNavigation()
-                                setupAlphaCutControl()
-                                loadCurrentImage()
-                                updateImageCount()
-                                setupCalculateButton()
-                            }
-                        }
-                    }
-                }
-            }
-        )
     }
 
     private fun checkStoragePermission(): Boolean {
