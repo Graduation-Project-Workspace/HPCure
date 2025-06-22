@@ -44,8 +44,7 @@ class SeedPredictor : ISeedPrecitor {
         var xMax = roi[1]
         var yMin = roi[2]
         var yMax = roi[3]
-
-        // Clamp coordinates to bitmap bounds
+        // fixed extract roi from bitmap
         xMin = xMin.coerceIn(0, bitmap.width - 1)
         xMax = xMax.coerceIn(xMin + 1, bitmap.width)
         yMin = yMin.coerceIn(0, bitmap.height - 1)
