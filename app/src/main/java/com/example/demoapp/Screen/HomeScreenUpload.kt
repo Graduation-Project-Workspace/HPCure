@@ -14,14 +14,11 @@ import android.widget.*
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.compose.runtime.mutableStateListOf
-import androidx.appcompat.app.AppCompatActivity
 import com.example.demoapp.Core.ParallelFuzzySystem
 import com.example.demoapp.Core.RoiPredictor
 import com.example.demoapp.Core.SeedPredictor
@@ -36,9 +33,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-
 @RequiresApi(Build.VERSION_CODES.N)
-class HomeScreenUpload : AppCompatActivity() {
+class HomeScreenUpload : BaseActivity() {
     private lateinit var mriImage: ImageView
     private lateinit var alphaCutValue: TextView
     private lateinit var alphaCutSlider: SeekBar
@@ -52,14 +48,11 @@ class HomeScreenUpload : AppCompatActivity() {
 
     private lateinit var loadingOverlay: RelativeLayout
     private lateinit var calculateButton: Button
-    private var context = this
 
     private val storagePermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
-        if (permissions.all { it.value }) {
-            initializeApp()
-        } else {
+        if (!permissions.all { it.value }) {
             Toast.makeText(this, "Storage permission required to load images", Toast.LENGTH_SHORT).show()
             finish()
         }
@@ -73,13 +66,158 @@ class HomeScreenUpload : AppCompatActivity() {
         network = GrpcNetwork(logs, this, roiPredictor, seedPredictor)
 
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.hs_upload)
 
-        if (checkStoragePermission()) {
-            initializeApp()
-        } else {
+        if (!checkStoragePermission()) {
             requestStoragePermission()
         }
+    }
+
+    override fun getMainContent(): @Composable () -> Unit = {
+        AndroidView(
+            modifier = Modifier.fillMaxSize(),
+            factory = { ctx ->
+                val view = View.inflate(ctx, R.layout.hs_upload, null)
+                mriImage = view.findViewById(R.id.mri_image)
+                alphaCutValue = view.findViewById(R.id.alpha_cut_value)
+                alphaCutSlider = view.findViewById(R.id.alpha_cut_slider)
+                imageCount = view.findViewById(R.id.image_count)
+                prevImage = view.findViewById(R.id.prev_image)
+                nextImage = view.findViewById(R.id.next_image)
+                calculateButton = view.findViewById(R.id.calculate_volume)
+                loadingOverlay = view.findViewById(R.id.loading_overlay)
+                val menuButton = view.findViewById<ImageButton?>(R.id.menu_button)
+                menuButton?.setOnClickListener { openDrawer() }
+
+                fun updateDisplay() {
+                    alphaCutValue.text = "%.2f%%".format(currentAlphaCutValue)
+                }
+                fun updateImageCount() {
+                    imageCount.text = "${FileManager.getCurrentIndex()}/${FileManager.getTotalFiles()}"
+                }
+                fun updateNavigationButtons() {
+                    val currentIndex = FileManager.getCurrentIndex()
+                    val totalFiles = FileManager.getTotalFiles()
+                    prevImage.visibility = if (currentIndex > 1) ImageButton.VISIBLE else ImageButton.INVISIBLE
+                    nextImage.visibility = if (currentIndex < totalFiles) ImageButton.VISIBLE else ImageButton.INVISIBLE
+                }
+                fun loadCurrentImage() {
+                    FileManager.getCurrentFile()?.let { file ->
+                        val bitmap = FileManager.getProcessedImage(ctx, file)
+                        bitmap?.let {
+                            mriImage.apply {
+                                setImageBitmap(it)
+                                scaleType = ImageView.ScaleType.FIT_CENTER
+                                adjustViewBounds = true
+                            }
+                        }
+                    }
+                    updateNavigationButtons()
+                }
+                fun showLoadingState() {
+                    loadingOverlay.alpha = 0f
+                    loadingOverlay.visibility = View.VISIBLE
+                    loadingOverlay.animate()
+                        .alpha(1f)
+                        .setDuration(200)
+                        .start()
+                    calculateButton.isEnabled = false
+                }
+                fun hideLoadingState() {
+                    loadingOverlay.animate()
+                        .alpha(0f)
+                        .setDuration(200)
+                        .withEndAction {
+                            loadingOverlay.visibility = View.GONE
+                            calculateButton.isEnabled = true
+                        }
+                        .start()
+                }
+                fun navigateToResults() {
+                    val alphaCut = alphaCutValue.text.toString().replace("%", "").toFloat()
+                    // Store data in singleton for passing to HomeScreenResults
+                    ResultsHolder.mriSequence = mriSequence
+                    ResultsHolder.cancerVolume = cancerVolume
+                    ResultsHolder.alphaCut = alphaCut
+                    // Start HomeScreenResults activity
+                    val intent = Intent(ctx, HomeScreenResults::class.java)
+                    ctx.startActivity(intent)
+                }
+                fun setupCalculateButton() {
+                    calculateButton.setOnClickListener {
+                        showLoadingState()
+                        CoroutineScope(Dispatchers.IO).launch {
+                            try {
+                                val bitmaps = FileManager.getAllFiles().mapNotNull { file ->
+                                    FileManager.getProcessedImage(ctx, file)
+                                }
+                                val alphaCut = alphaCutValue.text.toString().replace("%", "").toFloat()
+                                mriSequence = MRISequence(
+                                    images = bitmaps,
+                                    metadata = HashMap()
+                                )
+                                val availableWorkers = network.getAvailableWorkers()
+                                Log.d("GrpcNetwork", "Available workers: ${availableWorkers.size}")
+                                val seedPredictor = SeedPredictor(context = ctx)
+                                val roiPredictor = RoiPredictor(context = ctx)
+                                val volumeEstimator = VolumeEstimator(
+                                    seedPredictor = seedPredictor,
+                                    fuzzySystem = ParallelFuzzySystem(),
+                                    roiPredictor = roiPredictor,
+                                    network = network
+                                )
+                                cancerVolume = volumeEstimator.estimateVolumeGrpc(mriSequence, alphaCut)
+                                Log.d("VolumeEstimate", "Estimated Volume: ${cancerVolume.volume}")
+                                withContext(Dispatchers.Main) {
+                                    hideLoadingState()
+                                    navigateToResults()
+                                }
+                            } catch (e: Exception) {
+                                Log.e("VolumeEstimate", "Error estimating volume", e)
+                                withContext(Dispatchers.Main) {
+                                    hideLoadingState()
+                                    Toast.makeText(ctx, "Error estimating volume: ${e.message}", Toast.LENGTH_LONG).show()
+                                }
+                            }
+                        }
+                    }
+                }
+                fun setupImageNavigation() {
+                    prevImage.setOnClickListener {
+                        if (FileManager.moveToPrevious()) {
+                            loadCurrentImage()
+                            updateImageCount()
+                        }
+                    }
+                    nextImage.setOnClickListener {
+                        if (FileManager.moveToNext()) {
+                            loadCurrentImage()
+                            updateImageCount()
+                        }
+                    }
+                }
+                fun setupAlphaCutControl() {
+                    alphaCutSlider.max = 10000 // For 2 decimal precision
+                    alphaCutSlider.progress = (currentAlphaCutValue * 100).toInt()
+                    updateDisplay()
+                    alphaCutSlider.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                        override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                            currentAlphaCutValue = progress / 100f
+                            updateDisplay()
+                        }
+                        override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+                        override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+                    })
+                }
+                // Initial setup
+                updateDisplay()
+                setupImageNavigation()
+                setupAlphaCutControl()
+                loadCurrentImage()
+                updateImageCount()
+                setupCalculateButton()
+                view
+            }
+        )
     }
 
     private fun checkStoragePermission(): Boolean {
@@ -110,186 +248,6 @@ class HomeScreenUpload : AppCompatActivity() {
                 )
             )
         }
-    }
-    private fun initializeApp() {
-        initializeViews()
-        setupImageNavigation()
-        setupAlphaCutControl()
-        loadCurrentImage()
-        updateImageCount()
-        setupCalculateButton()
-    }
-
-    private fun initializeViews() {
-        mriImage = findViewById(R.id.mri_image)
-        alphaCutValue = findViewById(R.id.alpha_cut_value)
-        alphaCutSlider = findViewById(R.id.alpha_cut_slider)
-        imageCount = findViewById(R.id.image_count)
-        prevImage = findViewById(R.id.prev_image)
-        nextImage = findViewById(R.id.next_image)
-        calculateButton = findViewById(R.id.calculate_volume)
-        loadingOverlay = findViewById(R.id.loading_overlay)
-
-        updateDisplay()
-    }
-    private fun setupCalculateButton() {
-        calculateButton.setOnClickListener {
-            showLoadingState()
-
-            // Perform the volume estimation in a background thread
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    // Retrieve the list of bitmaps
-                    val bitmaps = FileManager.getAllFiles().mapNotNull { file ->
-                        FileManager.getProcessedImage(this@HomeScreenUpload, file)
-                    }
-
-                    // Parse alphaCutValue from the TextView
-                    val alphaCut = alphaCutValue.text.toString().replace("%", "").toFloat()
-
-                    // Create MRI sequence
-                    mriSequence = MRISequence(
-                        images = bitmaps,
-                        metadata = HashMap()
-                    )
-
-                    // Get available workers
-                    val availableWorkers = network.getAvailableWorkers()
-                    Log.d("GrpcNetwork", "Available workers: ${availableWorkers.size}")
-
-                    // Call estimateVolumeGrpc
-                    val seedPredictor = SeedPredictor(context = context)
-                    val roiPredictor = RoiPredictor(context = context)
-                    val volumeEstimator = VolumeEstimator(
-                        seedPredictor = seedPredictor,
-                        fuzzySystem = ParallelFuzzySystem(),
-                        roiPredictor = roiPredictor,
-                        network = network
-                    )
-
-                    cancerVolume = volumeEstimator.estimateVolumeGrpc(mriSequence, alphaCut)
-                    Log.d("VolumeEstimate", "Estimated Volume: ${cancerVolume.volume}")
-
-                    // Update the UI on the main thread
-                    withContext(Dispatchers.Main) {
-                        hideLoadingState()
-                        navigateToResults()
-                    }
-                } catch (e: Exception) {
-                    Log.e("VolumeEstimate", "Error estimating volume", e)
-                    withContext(Dispatchers.Main) {
-                        hideLoadingState()
-                        Toast.makeText(this@HomeScreenUpload, "Error estimating volume: ${e.message}", Toast.LENGTH_LONG).show()
-                    }
-                }
-            }
-        }
-    }
-    private fun showLoadingState() {
-        loadingOverlay.alpha = 0f
-        loadingOverlay.visibility = View.VISIBLE
-        loadingOverlay.animate()
-            .alpha(1f)
-            .setDuration(200)
-            .start()
-
-        calculateButton.isEnabled = false
-    }
-
-    private fun hideLoadingState() {
-        loadingOverlay.animate()
-            .alpha(0f)
-            .setDuration(200)
-            .withEndAction {
-                loadingOverlay.visibility = View.GONE
-                calculateButton.isEnabled = true
-            }
-            .start()
-    }
-
-    private fun navigateToResults() {
-        val fragmentManager = supportFragmentManager
-        val transaction = fragmentManager.beginTransaction()
-        val alphaCut = alphaCutValue.text.toString().replace("%", "").toFloat()
-
-        // Create and add HomeScreenResults fragment
-        val resultsFragment = HomeScreenResults.newInstance(mriSequence, cancerVolume, alphaCut)
-        transaction.replace(R.id.fragment_container, resultsFragment)
-        transaction.addToBackStack(null)
-        transaction.commit()
-    }
-
-    private fun preprocessMriSequence(){
-        // preprocess the MRI DICOM sequence to have a 3d image array [][][# slices] [512][512][# slices]
-
-
-    }
-
-    private fun loadCurrentImage() {
-        FileManager.getCurrentFile()?.let { file ->
-            val bitmap = FileManager.getProcessedImage(this, file)
-            bitmap?.let {
-                mriImage.apply {
-                    setImageBitmap(it)
-                    scaleType = ImageView.ScaleType.FIT_CENTER
-                    adjustViewBounds = true
-                }
-            }
-        }
-        updateNavigationButtons()
-    }
-
-    private fun setupImageNavigation() {
-        prevImage.setOnClickListener {
-            if (FileManager.moveToPrevious()) {
-                loadCurrentImage()
-                updateImageCount()
-            }
-        }
-
-        nextImage.setOnClickListener {
-            if (FileManager.moveToNext()) {
-                loadCurrentImage()
-                updateImageCount()
-            }
-        }
-    }
-
-    private fun updateImageCount() {
-        imageCount.text = "${FileManager.getCurrentIndex()}/${FileManager.getTotalFiles()}"
-    }
-
-    private fun updateNavigationButtons() {
-        val currentIndex = FileManager.getCurrentIndex()
-        val totalFiles = FileManager.getTotalFiles()
-
-        prevImage.visibility = if (currentIndex > 1) ImageButton.VISIBLE else ImageButton.INVISIBLE
-        nextImage.visibility = if (currentIndex < totalFiles) ImageButton.VISIBLE else ImageButton.INVISIBLE
-    }
-
-    private fun setupAlphaCutControl() {
-        alphaCutSlider.max = 10000 // For 2 decimal precision
-        alphaCutSlider.progress = (currentAlphaCutValue * 100).toInt()
-        updateDisplay()
-
-        alphaCutSlider.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                currentAlphaCutValue = progress / 100f
-                updateDisplay()
-            }
-
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {
-                // Optional: Add any behavior when user starts moving the slider
-            }
-
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {
-                // Optional: Add any behavior when user stops moving the slider
-            }
-        })
-    }
-
-    private fun updateDisplay() {
-        alphaCutValue.text = "%.2f%%".format(currentAlphaCutValue)
     }
 
     override fun onDestroy() {

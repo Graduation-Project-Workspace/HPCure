@@ -2,11 +2,14 @@ package com.example.demoapp.Screen
 
 import android.os.Bundle
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -17,54 +20,63 @@ import com.example.network.ui.MainViewModelFactory
 import com.example.demoapp.Core.RoiPredictor
 import com.example.demoapp.Core.SeedPredictor
 
-@OptIn(ExperimentalMaterial3Api::class)
 abstract class BaseActivity : FragmentActivity() {
     private lateinit var viewModel: MainViewModel
-    private var drawerState by mutableStateOf(false)
+    private var drawerStateCompose by mutableStateOf(false)
+
+    fun openDrawer() {
+        drawerStateCompose = true
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val roiPredictor = RoiPredictor(this)
         val seedPredictor = SeedPredictor(this)
-        viewModel = MainViewModelFactory(this, roiPredictor, seedPredictor).create(MainViewModel::class.java)
+        viewModel = MainViewModelFactory(this, roiPredictor, seedPredictor)
+            .create(MainViewModel::class.java)
 
         setContent {
             MaterialTheme {
-                Scaffold (
-                    topBar = {
-                        TopAppBar (
-                            title = { Text(getScreenTitle()) },
-                            navigationIcon = {
-                                IconButton(onClick = { drawerState = true }) {
-                                    Icon(
-                                        imageVector = Icons.Default.Menu,
-                                        contentDescription = "Menu"
-                                    )
-                                }
-                            },
-                            colors = TopAppBarDefaults.topAppBarColors(
-                                containerColor = Color(0xFF1E1E1E),
-                                titleContentColor = Color.White,
-                                navigationIconContentColor = Color.White
-                            )
-                        )
-                    }
-                ) { paddingValues ->
-                    Box(modifier = Modifier.padding(paddingValues)) {
-                        // Main content
-                        getMainContent()
+                Box(modifier = Modifier.fillMaxSize()) {
+                    getMainContent()()
 
-                        // Navigation drawer
-                        if (drawerState) {
+                    if (drawerStateCompose) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Black.copy(alpha = 0.5f)) // semi-transparent overlay
+                                .clickable { drawerStateCompose = false } // tap outside to dismiss
+                        ) {
                             ModalDrawerSheet(
-                                modifier = Modifier.fillMaxWidth(0.85f),
+                                modifier = Modifier
+                                    .fillMaxWidth(0.85f)
+                                    .align(Alignment.CenterEnd),
                                 drawerContainerColor = Color.Black
                             ) {
-                                NetworkMonitorDrawer(
-                                    viewModel = viewModel,
-                                    context = this@BaseActivity,
-                                    modifier = Modifier.padding(16.dp)
-                                )
+                                Column(modifier = Modifier.fillMaxSize()) {
+                                    // Optional close button at top right
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(8.dp),
+                                        horizontalArrangement = Arrangement.End
+                                    ) {
+                                        IconButton(onClick = { drawerStateCompose = false }) {
+                                            Icon(
+                                                imageVector = Icons.Default.Close,
+                                                contentDescription = "Close Drawer",
+                                                tint = Color.White
+                                            )
+                                        }
+                                    }
+
+                                    // Actual drawer content
+                                    NetworkMonitorDrawer(
+                                        viewModel = viewModel,
+                                        context = this@BaseActivity,
+                                        modifier = Modifier.padding(16.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -73,6 +85,5 @@ abstract class BaseActivity : FragmentActivity() {
         }
     }
 
-    abstract fun getScreenTitle(): String
     abstract fun getMainContent(): @Composable () -> Unit
-} 
+}

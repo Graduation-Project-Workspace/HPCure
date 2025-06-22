@@ -7,11 +7,16 @@ import android.net.Uri
 import android.os.Bundle
 import android.provider.DocumentsContract
 import android.util.Log
+import android.view.View
 import android.widget.Button
+import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.RelativeLayout
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.viewinterop.AndroidView
 import com.example.demoapp.R
 import com.example.demoapp.Utils.FileManager
 import kotlinx.coroutines.CoroutineScope
@@ -20,110 +25,52 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 
-class HomeScreen : AppCompatActivity() {
+class HomeScreen : BaseActivity() {
     private val PICK_DIRECTORY_REQUEST_CODE = 1
-    private lateinit var uploadedImage: ImageView
     private val PERMISSION_REQUEST_CODE = 123
+
+    private var uploadedImage: ImageView? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.home_screen)
         FileManager.initialize(this)
-
-//        benchmark()
-
-        val uploadContainer: RelativeLayout = findViewById(R.id.upload_container)
-        val processButton: Button = findViewById(R.id.process_button)
-        uploadedImage = findViewById(R.id.uploaded_image)
-
-        uploadContainer.setOnClickListener {
-//            checkAndRequestPermissions()
-            openDirectoryPicker()
-        }
-
-        processButton.setOnClickListener {
-            if (FileManager.getTotalFiles() > 0) {
-                val intent = Intent(this, HomeScreenUpload::class.java)
-                startActivity(intent)
-            } else {
-                showToast("Please select a DICOM directory first")
-            }
-        }
-        val nextButton: Button = findViewById(R.id.go_to_next_screen)
-        nextButton.setOnClickListener {
-            val intent = Intent(this, ModelScreen::class.java)
-            startActivity(intent)
-        }
-
     }
 
-//    external fun doOps(ops: Long) : Long;
-//
-//    companion object {
-//        init {
-//            System.loadLibrary("demoapp")
-//        }
-//    }
+    override fun getMainContent(): @Composable () -> Unit = {
+        AndroidView(
+            modifier = Modifier.fillMaxSize(),
+            factory = { ctx ->
+                val view = View.inflate(ctx, R.layout.home_screen, null)
+                val uploadContainer = view.findViewById<RelativeLayout>(R.id.upload_container)
+                val processButton = view.findViewById<Button>(R.id.process_button)
+                val uploadedImageView = view.findViewById<ImageView>(R.id.uploaded_image)
+                val nextButton = view.findViewById<Button>(R.id.go_to_next_screen)
+                val menuButton = view.findViewById<ImageButton?>(R.id.menu_button)
+                uploadedImage = uploadedImageView
+                menuButton?.setOnClickListener { openDrawer() }
 
-//    private fun benchmark() {
-//        val jobCounts = listOf(3, 50, 100, 1000);
-//        val ops = listOf(1e6.toInt(), 1e7.toInt(), 1e8.toInt(), 1e9.toInt());
-//        val idleTimes = listOf(1000, 10000);
-//
-//
-//        for(op in ops){
-//            var time = measureTimeMillis {
-//                val result = doOps(op.toLong())
-//            }
-//            Log.d("ExecutionTime", "Execution time (Native), $op ops: $time ms")
-//
-//            time = measureTimeMillis {
-//                var sum = 0;
-//                for(i in 1..op) {
-//                    sum += i
-//                }
-//            }
-//            Log.d("ExecutionTime", "Execution time (Sequential), $op ops: $time ms")
-//        }
-
-
-//        for (jobCount in jobCounts){
-//            for(idleTime in idleTimes){
-//                val concurrencyDemo = ConcurrencyDemo()
-//                concurrencyDemo.runIdleTasks(jobCount, idleTime)
-//
-//                val parallelizeDemo = ParallelizeDemo()
-//                parallelizeDemo.runIdleTasks(jobCount, idleTime)
-//            }
-//        }
-
-//        for (jobCount in jobCounts) {
-//            for (op in ops) {
-//                val concurrencyDemo = ConcurrencyDemo()
-//                concurrencyDemo.main(jobCount, op)
-//
-//                val parallelizeDemo = ParallelizeDemo()
-//                parallelizeDemo.main(jobCount, op)
-//
-//                if(jobCount.toLong() * op.toLong() > 1e10.toLong())
-//                    break
-//
-//                val time = measureTimeMillis {
-//                    for(t in 1..jobCount) {
-//                        var sum = 0;
-//                        for (i in 1..op) {
-//                            sum += i
-//                        }
-//                    }
-//                }
-//                Log.d("ExecutionTime", "Execution time (Sequential), $jobCount jobs, $op ops: $time ms")
-//            }
-//        }
-//    }
+                uploadContainer.setOnClickListener {
+                    openDirectoryPicker()
+                }
+                processButton.setOnClickListener {
+                    if (FileManager.getTotalFiles() > 0) {
+                        val intent = Intent(ctx, HomeScreenUpload::class.java)
+                        ctx.startActivity(intent)
+                    } else {
+                        Toast.makeText(ctx, "Please select a DICOM directory first", Toast.LENGTH_SHORT).show()
+                    }
+                }
+                nextButton.setOnClickListener {
+                    val intent = Intent(ctx, ModelScreen::class.java)
+                    ctx.startActivity(intent)
+                }
+                view
+            }
+        )
+    }
 
     private fun openDirectoryPicker() {
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
-        // Suggest the Downloads directory as a starting point
         intent.putExtra("android.provider.extra.INITIAL_URI",
             "content://com.android.externalstorage.documents/document/primary:Download")
         startActivityForResult(intent, PICK_DIRECTORY_REQUEST_CODE)
@@ -139,13 +86,13 @@ class HomeScreen : AppCompatActivity() {
     }
 
     private fun getRealPathFromURI(uri: Uri): String? {
-        try {
+        return try {
             val docUri = DocumentsContract.buildDocumentUriUsingTree(uri,
                 DocumentsContract.getTreeDocumentId(uri))
-            return docUri.toString()
+            docUri.toString()
         } catch (e: Exception) {
             e.printStackTrace()
-            return null
+            null
         }
     }
 
@@ -154,26 +101,23 @@ class HomeScreen : AppCompatActivity() {
             try {
                 val success = withContext(Dispatchers.IO) {
                     try {
-                        // Take persistent permissions
                         val takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION or
                                 Intent.FLAG_GRANT_WRITE_URI_PERMISSION
                         contentResolver.takePersistableUriPermission(uri, takeFlags)
-
                         FileManager.loadDirectory(this@HomeScreen, uri)
                     } catch (e: Exception) {
                         Log.e("HomeScreen", "Error in loadDirectory", e)
                         false
                     }
                 }
-
                 if (success) {
                     FileManager.getCurrentFile()?.let { file ->
                         try {
                             val bitmap = FileManager.getProcessedImage(this@HomeScreen, file)
                             bitmap?.let {
-                                uploadedImage.setImageBitmap(it)
-                                uploadedImage.visibility = ImageView.VISIBLE
-                                showToast("DICOM directory loaded successfully")
+                                uploadedImage?.setImageBitmap(it)
+                                uploadedImage?.visibility = ImageView.VISIBLE
+                                Toast.makeText(this@HomeScreen, "DICOM directory loaded successfully", Toast.LENGTH_SHORT).show()
                             } ?: run {
                                 showErrorDialog("Failed to process image")
                             }
@@ -197,7 +141,6 @@ class HomeScreen : AppCompatActivity() {
             android.Manifest.permission.READ_EXTERNAL_STORAGE,
             android.Manifest.permission.WRITE_EXTERNAL_STORAGE
         )
-
         if (checkSelfPermission(android.Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED ||
             checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(permissions, PERMISSION_REQUEST_CODE)
@@ -218,7 +161,7 @@ class HomeScreen : AppCompatActivity() {
                     grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
                     openDirectoryPicker()
                 } else {
-                    showToast("Storage permissions are required")
+                    Toast.makeText(this, "Storage permissions are required", Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -231,10 +174,6 @@ class HomeScreen : AppCompatActivity() {
 
     private fun showErrorDialog(message: String) {
         ErrorDialog(this).show(message)
-    }
-
-    private fun showToast(message: String) {
-        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
 
 }
