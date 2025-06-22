@@ -43,11 +43,6 @@
             </intent-filter>
         </activity>
 
-        <activity android:name=".HomeScreenResults"
-            android:exported="true"
-            android:theme="@style/Theme.AppCompat.Light.NoActionBar"
-            android:hardwareAccelerated="true"
-            />
         <activity android:name=".Screen.ModelScreen"
             android:exported="true"
             android:theme="@style/Theme.AppCompat.Light.NoActionBar"

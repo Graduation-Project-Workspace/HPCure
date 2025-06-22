@@ -10,8 +10,8 @@ import android.widget.*
 import androidx.core.graphics.get
 import androidx.core.graphics.set
 import androidx.fragment.app.Fragment
-import com.example.demoapp.Model.CancerVolume
-import com.example.demoapp.Model.MRISequence
+import com.example.domain.model.CancerVolume
+import com.example.domain.model.MRISequence
 import com.example.demoapp.R
 
 class HomeScreenResults(private var mriSequence: MRISequence,

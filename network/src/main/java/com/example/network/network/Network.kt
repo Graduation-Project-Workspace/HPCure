@@ -111,7 +111,8 @@ class GrpcNetwork(
             localAddress = localAddress,
             matrixFriendlyName = friendlyName,
             roiPredictor = roiPredictor,
-            seedPredictor = seedPredictor
+            seedPredictor = seedPredictor,
+            networkService = this
         )
         coordinator.addWorker(localAddress, friendlyName)
         logs.add("Coordinator: also registered self as worker $localAddress ($friendlyName)")

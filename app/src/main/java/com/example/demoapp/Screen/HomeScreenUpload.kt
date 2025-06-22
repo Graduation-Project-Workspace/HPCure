@@ -13,8 +13,16 @@ import android.view.View
 import android.widget.*
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
-import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.material3.*
+import androidx.fragment.app.FragmentActivity
 import com.example.demoapp.Core.ParallelFuzzySystem
 import com.example.demoapp.Core.RoiPredictor
 import com.example.demoapp.Core.SeedPredictor
@@ -23,6 +31,7 @@ import com.example.domain.model.CancerVolume
 import com.example.domain.model.MRISequence
 import com.example.demoapp.R
 import com.example.demoapp.Utils.FileManager
+import com.example.network.network.GrpcNetwork
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -30,7 +39,7 @@ import kotlinx.coroutines.withContext
 
 
 @RequiresApi(Build.VERSION_CODES.N)
-class HomeScreenUpload : AppCompatActivity() {
+class HomeScreenUpload : BaseActivity() {
     private lateinit var mriImage: ImageView
     private lateinit var alphaCutValue: TextView
     private lateinit var alphaCutSlider: SeekBar
@@ -40,6 +49,7 @@ class HomeScreenUpload : AppCompatActivity() {
     private var currentAlphaCutValue: Float = 50.00f
     private lateinit var cancerVolume: CancerVolume
     private lateinit var mriSequence: MRISequence
+    private lateinit var network: GrpcNetwork
 
     private lateinit var loadingOverlay: RelativeLayout
     private lateinit var calculateButton: Button
@@ -57,8 +67,13 @@ class HomeScreenUpload : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Initialize GrpcNetwork
+        val logs = mutableStateListOf<String>()
+        val seedPredictor = SeedPredictor(context = this)
+        val roiPredictor = RoiPredictor(context = this)
+        network = GrpcNetwork(logs, this, roiPredictor, seedPredictor)
+
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.hs_upload)
 
         if (checkStoragePermission()) {
             initializeApp()
@@ -66,6 +81,45 @@ class HomeScreenUpload : AppCompatActivity() {
             requestStoragePermission()
         }
     }
+
+    override fun getScreenTitle(): String = "Volume Estimation"
+
+    override fun getMainContent(): @Composable () -> Unit = {
+        AndroidView(
+            factory = { context ->
+                ComposeView(context).apply {
+                    setContent {
+                        MaterialTheme {
+                            Surface(
+                                modifier = Modifier.fillMaxSize(),
+                                color = MaterialTheme.colorScheme.background
+                            ) {
+                                setContentView(R.layout.hs_upload)
+                                
+                                // Initialize views after setting content
+                                mriImage = findViewById(R.id.mri_image)
+                                alphaCutValue = findViewById(R.id.alpha_cut_value)
+                                alphaCutSlider = findViewById(R.id.alpha_cut_slider)
+                                imageCount = findViewById(R.id.image_count)
+                                prevImage = findViewById(R.id.prev_image)
+                                nextImage = findViewById(R.id.next_image)
+                                calculateButton = findViewById(R.id.calculate_volume)
+                                loadingOverlay = findViewById(R.id.loading_overlay)
+
+                                // Setup UI components
+                                setupImageNavigation()
+                                setupAlphaCutControl()
+                                loadCurrentImage()
+                                updateImageCount()
+                                setupCalculateButton()
+                            }
+                        }
+                    }
+                }
+            }
+        )
+    }
+
     private fun checkStoragePermission(): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             Environment.isExternalStorageManager()
@@ -122,37 +176,49 @@ class HomeScreenUpload : AppCompatActivity() {
 
             // Perform the volume estimation in a background thread
             CoroutineScope(Dispatchers.IO).launch {
-                // Retrieve the list of bitmaps
-                val bitmaps = FileManager.getAllFiles().mapNotNull { file ->
-                    FileManager.getProcessedImage(this@HomeScreenUpload, file)
-                }
+                try {
+                    // Retrieve the list of bitmaps
+                    val bitmaps = FileManager.getAllFiles().mapNotNull { file ->
+                        FileManager.getProcessedImage(this@HomeScreenUpload, file)
+                    }
 
-                // Parse alphaCutValue from the TextView
-                val alphaCut = alphaCutValue.text.toString().replace("%", "").toFloat()
+                    // Parse alphaCutValue from the TextView
+                    val alphaCut = alphaCutValue.text.toString().replace("%", "").toFloat()
 
-                // Call estimateVolume
-                val seedPredictor = SeedPredictor(context = context);
-                Log.d("SeedPredictor", "Initialized SeedPredictor")
-                val roiPredictor = RoiPredictor(context = context);
-                Log.d("RoiPredictor", "Initialized RoiPredictor")
-                val volumeEstimator = VolumeEstimator(
-                    seedPredictor = seedPredictor,
-                    fuzzySystem = ParallelFuzzySystem(),
-                    roiPredictor = roiPredictor
-                )
-                mriSequence = MRISequence(
-                    images = bitmaps,
-                    metadata = HashMap()
-                );
+                    // Create MRI sequence
+                    mriSequence = MRISequence(
+                        images = bitmaps,
+                        metadata = HashMap()
+                    )
 
-                cancerVolume = volumeEstimator.estimateVolume(mriSequence, alphaCut)
-                // Log the result
-                Log.d("VolumeEstimate", "Estimated Volume: ${cancerVolume.volume}")
+                    // Get available workers
+                    val availableWorkers = network.getAvailableWorkers()
+                    Log.d("GrpcNetwork", "Available workers: ${availableWorkers.size}")
 
-                // Update the UI on the main thread
-                withContext(Dispatchers.Main) {
-                    hideLoadingState()
-                    navigateToResults()
+                    // Call estimateVolumeGrpc
+                    val seedPredictor = SeedPredictor(context = context)
+                    val roiPredictor = RoiPredictor(context = context)
+                    val volumeEstimator = VolumeEstimator(
+                        seedPredictor = seedPredictor,
+                        fuzzySystem = ParallelFuzzySystem(),
+                        roiPredictor = roiPredictor,
+                        network = network
+                    )
+
+                    cancerVolume = volumeEstimator.estimateVolumeGrpc(mriSequence, alphaCut)
+                    Log.d("VolumeEstimate", "Estimated Volume: ${cancerVolume.volume}")
+
+                    // Update the UI on the main thread
+                    withContext(Dispatchers.Main) {
+                        hideLoadingState()
+                        navigateToResults()
+                    }
+                } catch (e: Exception) {
+                    Log.e("VolumeEstimate", "Error estimating volume", e)
+                    withContext(Dispatchers.Main) {
+                        hideLoadingState()
+                        Toast.makeText(this@HomeScreenUpload, "Error estimating volume: ${e.message}", Toast.LENGTH_LONG).show()
+                    }
                 }
             }
         }

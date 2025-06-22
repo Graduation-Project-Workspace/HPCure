@@ -25,3 +25,5 @@
 -keep class org.tensorflow.lite.** { *; }
 -keep interface org.tensorflow.lite.** { *; }
 -keep class com.example.demoapp.** { *; }
+-dontwarn javax.imageio.**
+-dontwarn com.google.auto.value.**

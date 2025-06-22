@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.compose.runtime.mutableStateListOf
 import com.example.domain.interfaces.IFuzzySystem
+import com.example.domain.interfaces.INetworkService
 import com.example.domain.interfaces.IRoiPredictor
 import com.example.domain.interfaces.ISeedPredictor
 import com.example.domain.model.CancerVolume
@@ -19,7 +20,7 @@ class VolumeEstimator(
     private val fuzzySystem: IFuzzySystem,
     private val seedPredictor: ISeedPredictor,
     private val roiPredictor: IRoiPredictor,
-    private val network: GrpcNetwork
+    private val network: INetworkService
 ) {
     private val coordinatorStrategy = VolumeEstimateCoordinatorStrategy(network)
     private val logs = mutableStateListOf<String>()

@@ -1,6 +1,7 @@
 package com.example.network.coordinator
 
 import com.example.domain.interfaces.ICoordinatorStrategy
+import com.example.domain.interfaces.INetworkService
 import com.example.domain.interfaces.IRoiPredictor
 import com.example.domain.interfaces.ISeedPredictor
 import com.example.domain.interfaces.WorkerResult
@@ -26,7 +27,8 @@ class Coordinator(
     private val matrixFriendlyName: String,
     private val roiPredictor: IRoiPredictor,
     private val seedPredictor: ISeedPredictor,
-    private val strategy: ICoordinatorStrategy = VolumeEstimateCoordinatorStrategy()
+    private val networkService: INetworkService,
+    private val strategy: ICoordinatorStrategy = VolumeEstimateCoordinatorStrategy(networkService)
 ) : TaskServiceGrpc.TaskServiceImplBase() {
 
     private val scope = CoroutineScope(Dispatchers.Main)

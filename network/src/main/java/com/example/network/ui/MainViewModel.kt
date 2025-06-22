@@ -6,6 +6,8 @@ import kotlinx.coroutines.flow.*
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import com.example.domain.interfaces.IComputationStrategy
+import com.example.domain.interfaces.IRoiPredictor
+import com.example.domain.interfaces.ISeedPredictor
 import com.example.network.computation.*
 import com.example.network.network.*
 import com.example.network.util.*
@@ -76,11 +78,15 @@ class MainViewModel(
     }
 }
 
-class MainViewModelFactory(private val context: Context) : ViewModelProvider.Factory {
+class MainViewModelFactory(
+    private val context: Context,
+    private val roiPredictor: IRoiPredictor,
+    private val seedPredictor: ISeedPredictor
+) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(MainViewModel::class.java)) {
-            val network = GrpcNetwork(mutableStateListOf(), context)
+            val network = GrpcNetwork(mutableStateListOf(), context, roiPredictor, seedPredictor)
             return MainViewModel(network) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")

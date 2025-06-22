@@ -5,20 +5,22 @@
         <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
     </style>
 
-    <style name="Theme.DemoApp" parent="Base.Theme.DemoApp" />
+    <style name="Theme.DemoApp" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/purple_500</item>
+        <item name="colorPrimaryVariant">@color/purple_700</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorSecondary">@color/teal_200</item>
+        <item name="colorSecondaryVariant">@color/teal_700</item>
+        <item name="colorOnSecondary">@color/black</item>
+        <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightNavigationBar">true</item>
+    </style>
 
-    <style name="Theme.DemoApp.Splash" parent="Theme.Material3.DayNight">
-        <!-- Background color -->
-        <item name="windowSplashScreenBackground">@color/splash_background</item>
-
-        <!-- Animated splash icon -->
-        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash</item>
-
-        <!-- Duration of the icon animation -->
-        <item name="windowSplashScreenAnimationDuration">1000</item>
-
-        <!-- Post splash screen theme -->
-        <item name="postSplashScreenTheme">@style/Theme.DemoApp</item>
+    <style name="Theme.DemoApp.Splash" parent="Theme.DemoApp">
+        <item name="android:windowBackground">@color/splash_background</item>
+        <item name="android:statusBarColor">@color/splash_background</item>
+        <item name="android:navigationBarColor">@color/splash_background</item>
     </style>
 
 
