@@ -114,7 +114,6 @@ class GrpcNetwork(
             seedPredictor = seedPredictor,
             networkService = this
         )
-        coordinator.addWorker(localAddress, friendlyName)
         logs.add("Coordinator: also registered self as worker $localAddress ($friendlyName)")
         return coordinator
     }

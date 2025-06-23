@@ -18,7 +18,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
-import androidx.compose.runtime.mutableStateListOf
 import com.example.demoapp.Core.ParallelFuzzySystem
 import com.example.demoapp.Core.RoiPredictor
 import com.example.demoapp.Core.SeedPredictor
@@ -26,6 +25,7 @@ import com.example.demoapp.Core.VolumeEstimator
 import com.example.domain.model.CancerVolume
 import com.example.domain.model.MRISequence
 import com.example.demoapp.R
+import com.example.domain.usecase.LogRepository
 import com.example.demoapp.Utils.FileManager
 import com.example.network.network.GrpcNetwork
 import kotlinx.coroutines.CoroutineScope
@@ -44,7 +44,6 @@ class HomeScreenUpload : BaseActivity() {
     private var currentAlphaCutValue: Float = 50.00f
     private lateinit var cancerVolume: CancerVolume
     private lateinit var mriSequence: MRISequence
-    private lateinit var network: GrpcNetwork
 
     private lateinit var loadingOverlay: RelativeLayout
     private lateinit var calculateButton: Button
@@ -60,10 +59,8 @@ class HomeScreenUpload : BaseActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // Initialize GrpcNetwork
-        val logs = mutableStateListOf<String>()
         val seedPredictor = SeedPredictor(context = this)
         val roiPredictor = RoiPredictor(context = this)
-        network = GrpcNetwork(logs, this, roiPredictor, seedPredictor)
 
         super.onCreate(savedInstanceState)
 
@@ -143,6 +140,8 @@ class HomeScreenUpload : BaseActivity() {
                     ctx.startActivity(intent)
                 }
                 fun setupCalculateButton() {
+                    val mainViewModel = SharedViewModel.getInstance(this)
+                    val network = mainViewModel.network
                     calculateButton.setOnClickListener {
                         showLoadingState()
                         CoroutineScope(Dispatchers.IO).launch {
@@ -155,8 +154,6 @@ class HomeScreenUpload : BaseActivity() {
                                     images = bitmaps,
                                     metadata = HashMap()
                                 )
-                                val availableWorkers = network.getAvailableWorkers()
-                                Log.d("GrpcNetwork", "Available workers: ${availableWorkers.size}")
                                 val seedPredictor = SeedPredictor(context = ctx)
                                 val roiPredictor = RoiPredictor(context = ctx)
                                 val volumeEstimator = VolumeEstimator(
@@ -166,13 +163,11 @@ class HomeScreenUpload : BaseActivity() {
                                     network = network
                                 )
                                 cancerVolume = volumeEstimator.estimateVolumeGrpc(mriSequence, alphaCut)
-                                Log.d("VolumeEstimate", "Estimated Volume: ${cancerVolume.volume}")
                                 withContext(Dispatchers.Main) {
                                     hideLoadingState()
                                     navigateToResults()
                                 }
                             } catch (e: Exception) {
-                                Log.e("VolumeEstimate", "Error estimating volume", e)
                                 withContext(Dispatchers.Main) {
                                     hideLoadingState()
                                     Toast.makeText(ctx, "Error estimating volume: ${e.message}", Toast.LENGTH_LONG).show()

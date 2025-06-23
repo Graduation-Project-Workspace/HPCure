@@ -8,13 +8,14 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import com.example.domain.interfaces.IComputationStrategy
 import com.example.domain.interfaces.IRoiPredictor
 import com.example.domain.interfaces.ISeedPredictor
+import com.example.domain.usecase.LogRepository
 import com.example.network.computation.*
 import com.example.network.network.*
 import com.example.network.util.*
 import kotlinx.coroutines.launch
 
 class MainViewModel(
-    private val network: GrpcNetwork
+    val network: GrpcNetwork
 ) : ViewModel() {
     private val _isComputing = MutableStateFlow(false)
     val isComputing: StateFlow<Boolean> = _isComputing
@@ -86,7 +87,7 @@ class MainViewModelFactory(
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(MainViewModel::class.java)) {
-            val network = GrpcNetwork(mutableStateListOf(), context, roiPredictor, seedPredictor)
+            val network = GrpcNetwork(LogRepository.sharedLogs, context, roiPredictor, seedPredictor)
             return MainViewModel(network) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")

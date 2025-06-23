@@ -69,6 +69,7 @@ class VolumeEstimateComputationStrategy(
                     .addAllSeedPoints(seedPoints)
                     .build()
             )
+            .setStatus(com.example.protos.TaskStatus.COMPLETED)
             .build()
     }
 

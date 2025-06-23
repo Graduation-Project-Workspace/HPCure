@@ -2,7 +2,7 @@ package com.example.demoapp.Core
 import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
-import androidx.compose.runtime.mutableStateListOf
+import com.example.domain.usecase.LogRepository
 import com.example.domain.interfaces.IFuzzySystem
 import com.example.domain.interfaces.INetworkService
 import com.example.domain.interfaces.IRoiPredictor
@@ -11,9 +11,6 @@ import com.example.domain.model.CancerVolume
 import com.example.domain.model.MRISequence
 import com.example.domain.model.ROI
 import com.example.network.coordinator.VolumeEstimateCoordinatorStrategy
-import com.example.network.network.GrpcNetwork
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 
 @RequiresApi(Build.VERSION_CODES.N)
 class VolumeEstimator(
@@ -23,8 +20,6 @@ class VolumeEstimator(
     private val network: INetworkService
 ) {
     private val coordinatorStrategy = VolumeEstimateCoordinatorStrategy(network)
-    private val logs = mutableStateListOf<String>()
-    private val scope = CoroutineScope(Dispatchers.Main)
 
     fun estimateVolume(mriSeq: MRISequence, alphaCutValue: Float): CancerVolume {
         val roiList = mriSeq.images.map { bitmap ->
@@ -95,7 +90,7 @@ class VolumeEstimator(
             val (roiList, seedPoints) = coordinatorStrategy.start(
                 request = request,
                 availableWorkers = availableWorkers,
-                logs = logs
+                logs = LogRepository.sharedLogs
             )
 
             // Log the results for debugging
