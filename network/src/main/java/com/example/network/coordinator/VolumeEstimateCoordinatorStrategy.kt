@@ -9,6 +9,9 @@ import com.example.protos.*
 import kotlin.math.ceil
 import java.io.ByteArrayOutputStream
 import android.util.Log
+import com.example.network.ui.UiEventWorkStatus
+import com.example.network.util.WorkEventBus
+import kotlinx.coroutines.*
 
 class VolumeEstimateCoordinatorStrategy(
     private val networkService: INetworkService
@@ -151,59 +154,83 @@ class VolumeEstimateCoordinatorStrategy(
     ): Pair<List<ROI>, List<Pair<Int, Int>>> {
         // Log the input request
         logInput(request, logs)
-        
         val totalSlices = request.volumeEstimateRequest.slicesCount
         logs.add("Starting distributed computation for $totalSlices slices")
-        
         // Distribute tasks among available workers
         val taskDistribution = distributeTasks(totalSlices, availableWorkers, logs)
-        
         if (taskDistribution.isEmpty()) {
             throw Exception("Failed to distribute tasks among workers")
         }
-
-        // Process each worker's task
         val results = mutableListOf<Pair<String, WorkerResult>>()
         var failedWorkers = 0
-        
-        taskDistribution.forEach { (worker, range) ->
-            try {
-                // Build sub-request for this worker
-                val subRequest = buildSubRequest(request, range)
-                
-                // Execute the task and collect results
-                val startTime = System.currentTimeMillis()
-                val response = executeTask(worker, subRequest)
-                val endTime = System.currentTimeMillis()
-                
-                if (response != null) {
-                    results.add(worker.first to WorkerResult(
-                        response = response,
-                        assignedRange = range.toList(),
-                        computationTime = endTime - startTime
-                    ))
-                    logs.add("Worker ${worker.second} successfully processed slices ${range.first} to ${range.last} in ${endTime - startTime}ms")
-                } else {
-                    failedWorkers++
-                    logs.add("Worker ${worker.second} failed to process slices ${range.first} to ${range.last}")
+        runBlocking {
+            val jobs = taskDistribution.map { (worker, range) ->
+                async(Dispatchers.IO) {
+                    try {
+                        // Post task assignment event
+                        WorkEventBus.post(
+                            UiEventWorkStatus.TaskAssigned(
+                                humanName = worker.second,
+                                portions = range.toList()
+                            )
+                        )
+                        // Build sub-request for this worker
+                        val subRequest = buildSubRequest(request, range)
+                        // Execute the task and collect results
+                        val startTime = System.currentTimeMillis()
+                        val response = executeTask(worker, subRequest)
+                        val endTime = System.currentTimeMillis()
+                        if (response != null) {
+                            synchronized(results) {
+                                results.add(worker.first to WorkerResult(
+                                    response = response,
+                                    assignedRange = range.toList(),
+                                    computationTime = endTime - startTime
+                                ))
+                            }
+                            logs.add("Worker ${worker.second} successfully processed slices ${range.first} to ${range.last} in ${endTime - startTime}ms")
+                            // Post task completed event
+                            WorkEventBus.post(
+                                UiEventWorkStatus.TaskCompleted(
+                                    humanName = worker.second,
+                                    portions = range.toList(),
+                                    computationTime = endTime - startTime
+                                )
+                            )
+                        } else {
+                            synchronized(this@VolumeEstimateCoordinatorStrategy) { failedWorkers++ }
+                            logs.add("Worker ${worker.second} failed to process slices ${range.first} to ${range.last}")
+                            // Post error event
+                            WorkEventBus.post(
+                                UiEventWorkStatus.Error(
+                                    humanName = worker.second,
+                                    message = "Failed to process slices ${range.first} to ${range.last}"
+                                )
+                            )
+                        }
+                    } catch (e: Exception) {
+                        synchronized(this@VolumeEstimateCoordinatorStrategy) { failedWorkers++ }
+                        logs.add("Error processing task for worker ${worker.second}: ${e.message}")
+                        // Post error event
+                        WorkEventBus.post(
+                            UiEventWorkStatus.Error(
+                                humanName = worker.second,
+                                message = "Exception: ${e.message}"
+                            )
+                        )
+                    }
                 }
-            } catch (e: Exception) {
-                failedWorkers++
-                logs.add("Error processing task for worker ${worker.second}: ${e.message}")
             }
+            jobs.awaitAll()
         }
-
         if (failedWorkers > 0) {
             logs.add("Warning: $failedWorkers workers failed to process their tasks")
         }
-
         if (results.isEmpty()) {
             throw Exception("All workers failed to process their tasks")
         }
-
         // Aggregate results from all workers
         val aggregatedResponse = aggregateResults(results)
-        
         // Convert aggregated results to ROI and seed points
         val roiList = aggregatedResponse.volumeEstimateResponse.roisList.map { roi ->
             ROI(
@@ -213,19 +240,15 @@ class VolumeEstimateCoordinatorStrategy(
                 yMax = roi.yMax
             )
         }
-        
         val seedPoints = aggregatedResponse.volumeEstimateResponse.seedPointsList.map { seedPoint ->
             Pair(seedPoint.x, seedPoint.y)
         }
-
         // Verify we have results for all slices
         if (roiList.size != totalSlices || seedPoints.size != totalSlices) {
             throw Exception("Missing results for some slices. Expected $totalSlices, got ${roiList.size} ROIs and ${seedPoints.size} seed points")
         }
-
         // Log the results
         logs.add("Successfully processed ${roiList.size} ROIs and ${seedPoints.size} seed points")
-        
         // Return the ROI list and seed points
         return Pair(roiList, seedPoints)
     }
