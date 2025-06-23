@@ -69,6 +69,16 @@
             android:textColor="#FFFFFF"
             android:textSize="18sp"/>
 
+        <!-- Time Taken -->
+        <TextView
+            android:id="@+id/time_taken_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Time Taken: 4000 ms"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"/>
+
         <!-- Image Container -->
         <RelativeLayout
             android:id="@+id/image_container"

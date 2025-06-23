@@ -144,6 +144,8 @@ class HomeScreenUpload : BaseActivity() {
                     val network = mainViewModel.network
                     calculateButton.setOnClickListener {
                         showLoadingState()
+                        // Record computation start time
+                        ResultsHolder.computationStartTime = System.currentTimeMillis()
                         CoroutineScope(Dispatchers.IO).launch {
                             try {
                                 val bitmaps = FileManager.getAllFiles().mapNotNull { file ->
@@ -165,6 +167,8 @@ class HomeScreenUpload : BaseActivity() {
                                 cancerVolume = volumeEstimator.estimateVolumeGrpc(mriSequence, alphaCut)
                                 withContext(Dispatchers.Main) {
                                     hideLoadingState()
+                                    // Record computation end time
+                                    ResultsHolder.computationEndTime = System.currentTimeMillis()
                                     navigateToResults()
                                 }
                             } catch (e: Exception) {

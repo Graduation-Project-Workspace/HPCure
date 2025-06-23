@@ -18,6 +18,8 @@ object ResultsHolder {
     var mriSequence: MRISequence? = null
     var cancerVolume: CancerVolume? = null
     var alphaCut: Float = 0f
+    var computationStartTime: Long = 0L
+    var computationEndTime: Long = 0L
 }
 
 class HomeScreenResults() : BaseActivity() {
@@ -155,6 +157,14 @@ class HomeScreenResults() : BaseActivity() {
                 setupImageNavigation()
                 setupDownloadButton()
                 tumorVolume.text = "Estimated Tumor Volume: ${cancerVolume.volume} cm³"
+
+                // Show total computation time if available
+                val timeTextView = view.findViewById<TextView>(R.id.time_taken_text)
+                if (ResultsHolder.computationStartTime > 0L && ResultsHolder.computationEndTime > 0L) {
+                    val totalMillis = ResultsHolder.computationEndTime - ResultsHolder.computationStartTime
+                    val timeText = "Total time taken: %.2f ms".format(totalMillis.toDouble())
+                    timeTextView.text = timeText
+                }
                 view
             }
         )
