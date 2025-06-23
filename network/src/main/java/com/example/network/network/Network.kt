@@ -114,7 +114,9 @@ class GrpcNetwork(
             seedPredictor = seedPredictor,
             networkService = this
         )
-        logs.add("Coordinator: also registered self as worker $localAddress ($friendlyName)")
+        val workerAddress = "${getLocalIpAddress()}:$WORKER_PORT"
+        coordinator.addWorker(workerAddress, friendlyName)
+        logs.add("Coordinator: also registered self as worker $workerAddress ($friendlyName)")
         return coordinator
     }
 
@@ -234,13 +236,13 @@ class GrpcNetwork(
     private fun startWorkerGrpcServer(): io.grpc.Server {
         val workerName = context.loadFriendlyName()
         val workerAddress = "${getLocalIpAddress()}:$WORKER_PORT"
-        
+
         // Create the computation strategy with required dependencies
         val strategy = VolumeEstimateComputationStrategy(
             roiPredictor = roiPredictor,
             seedPredictor = seedPredictor
         )
-        
+
         val server = io.grpc.Grpc
             .newServerBuilderForPort(WORKER_PORT, io.grpc.InsecureServerCredentials.create())
             .addService(object : TaskServiceGrpc.TaskServiceImplBase() {
@@ -270,7 +272,7 @@ class GrpcNetwork(
             try {
                 // Add initial random delay between 0-2 seconds to prevent thundering herd
                 delay((0..2000).random().toLong())
-                
+
                 while (true) {
                     try {
                         checkWorkersHealth()
@@ -317,10 +319,10 @@ class GrpcNetwork(
                         .setWorkerAddress("")
                         .setFriendlyName("")
                         .build()
-                    
+
                     val response = stub.registerWorker(request)
                     val friendlyName = response.friendlyName
-                    
+
                     // If we get here, the coordinator is alive
                     if (workerHealthStatus[coordinatorAddress] != true) {
                         workerHealthStatus[coordinatorAddress] = true
@@ -434,7 +436,7 @@ class GrpcNetwork(
             val response = stub.registerWorker(request)
             addressToFriendlyName[coordinatorAddress] = response.friendlyName
             logs.add("Registered with coordinator at $coordinatorAddress (${response.friendlyName})")
-            
+
             // Post only the status change event
             DeviceEventBus.post(
                 UiEventDeviceStatus.WorkerStatusChanged(
@@ -586,21 +588,21 @@ class GrpcNetwork(
             logs.add("\nTask redistribution events:")
             redistributionLogs.forEach { logs.add(it) }
         }
-        
+
         // Then show the final combined results
         logs.add("\nFinal computation results:")
-        
+
         // Create a map to store all portions computed by each worker (by address)
         val workersByAddress = mutableMapOf<String, MutableSet<Int>>()
-        
+
         // First, add all portions from the original assignments
         response.workerInfoMap.forEach { (workerId, indices) ->
             workersByAddress.getOrPut(workerId) { mutableSetOf() }.addAll(indices.valuesList)
         }
-        
+
         // Create a map from friendly name to address for easier lookup
         val nameToAddress = response.friendlyNamesMap.entries.associate { (address, name) -> name to address }
-        
+
         // Add any redistributed portions from the logs
         redistributionLogs.forEach { log ->
             val match = Regex("Successfully redistributed portions \\[(\\d+(?:, \\d+)*)] to (.+)$").find(log)
@@ -631,7 +633,7 @@ class GrpcNetwork(
 
             // Get original portions for this worker
             val originalPortions = response.workerInfoMap[workerId]?.valuesList?.sorted() ?: emptyList()
-            
+
             // Get redistributed portions for this worker
             val redistributedPortions = sortedPortions.filter { !originalPortions.contains(it) }.sorted()
 
@@ -645,7 +647,7 @@ class GrpcNetwork(
                 // If no redistributed portions, just show original ones
                 sortedPortions.joinToString(", ")
             }
-            
+
             logs.add("Worker '$workerName' computed portions: [$portionStr]")
 
             // Post a single completion event with all portions
@@ -693,18 +695,29 @@ class GrpcNetwork(
     }
 
     override fun getAvailableWorkers(): List<Pair<String, String>> {
-        return discoveredCoordinators.mapNotNull { address ->
-            val friendlyName = addressToFriendlyName[address]
-            if (friendlyName != null && workerHealthStatus[address] == true) {
-                address to friendlyName
+        val workers = discoveredCoordinators.mapNotNull { coordinatorAddress ->
+            val workerAddress = coordinatorAddress.replace(":$COORDINATOR_PORT", ":$WORKER_PORT")
+            val friendlyName = addressToFriendlyName[coordinatorAddress] // or use a separate map for worker addresses
+            val health = workerHealthStatus[coordinatorAddress]
+            logs.add("DEBUG: coordinator=$coordinatorAddress, worker=$workerAddress, name=$friendlyName, health=$health")
+            if (friendlyName != null && health == true) {
+                workerAddress to friendlyName
             } else null
+        }.toMutableList()
+
+        // Add self as worker
+        val selfWorkerAddress = "${getLocalIpAddress()}:$WORKER_PORT"
+        val selfFriendlyName = context.loadFriendlyName()
+        if (workers.none { it.first == selfWorkerAddress }) {
+            workers.add(selfWorkerAddress to selfFriendlyName)
         }
+        return workers
     }
 
     override fun executeTask(workerAddress: String, request: AssignTaskRequest): AssignTaskResponse {
         val channel = createChannel(workerAddress)
         val stub = TaskServiceGrpc.newBlockingStub(channel)
-        
+
         return try {
             // Create a task ID and requester ID
             val taskId = java.util.UUID.randomUUID().toString()
@@ -719,7 +732,7 @@ class GrpcNetwork(
 
             // Execute the task
             val response = stub.assignTask(assignRequest)
-            
+
             // Verify task status
             if (response.status != TaskStatus.COMPLETED) {
                 throw Exception("Task failed with status: ${response.status}")
@@ -728,6 +741,11 @@ class GrpcNetwork(
             channel.shutdown()
             response
         } catch (e: StatusRuntimeException) {
+            logs.add("Error executing task on worker ${workerAddress}: ${e.message}")
+            channel.shutdown()
+            throw e
+        } catch (e: Exception) {
+            logs.add("General error executing task on worker ${workerAddress}: ${e.message}")
             channel.shutdown()
             throw e
         }
