@@ -19,10 +19,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import com.example.demoapp.Core.ParallelFuzzySystem
 import com.example.demoapp.Core.RoiPredictor
-import com.example.demoapp.Core.SeedPredictor
-import com.example.demoapp.Core.VolumeEstimator
 import com.example.demoapp.Model.CancerVolume
 import com.example.demoapp.Model.MRISequence
 import com.example.demoapp.R
@@ -50,6 +47,7 @@ class RoiScreen : AppCompatActivity() {
     private lateinit var mainContent: RelativeLayout
     private lateinit var patientName: TextView
     private lateinit var confirmButton: Button
+    private lateinit var customizeButton: Button
 
 
     private lateinit var cancerVolume: CancerVolume
@@ -72,7 +70,7 @@ class RoiScreen : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.roi_screen)
+        setContentView(R.layout.shared_roi_seed_screen)
 
         if (FileManager.getAllFiles().isEmpty()) {
             Toast.makeText(this, "No images loaded! Returning to upload screen.", Toast.LENGTH_LONG).show()
@@ -154,7 +152,8 @@ class RoiScreen : AppCompatActivity() {
         btnGrpc = findViewById(R.id.btn_grpc)
         patientName = findViewById(R.id.patient_name)
         confirmButton = findViewById(R.id.confirm_roi_button)
-
+        confirmButton.text = "Confirm Roi"
+        customizeButton = findViewById(R.id.customize_button)
     }
 
     private fun setupOptionsPopup() {
@@ -229,6 +228,7 @@ class RoiScreen : AppCompatActivity() {
                     patientName.text = "Time Taken: $timeTaken ms"
                 }
                 confirmButton.visibility = View.VISIBLE
+                customizeButton.visibility = View.VISIBLE
 
             }
         }
@@ -285,10 +285,23 @@ class RoiScreen : AppCompatActivity() {
     }
 
     private fun drawRoiRectangleOnBitmap(originalBitmap: Bitmap, roi: FloatArray): Bitmap {
-        val left = (roi[0] * originalBitmap.width).toInt()
-        val top = (roi[1] * originalBitmap.height).toInt()
-        val right = (roi[2] * originalBitmap.width).toInt()
-        val bottom = (roi[3] * originalBitmap.height).toInt()
+        val xCenter = roi[0]
+        val yCenter = roi[1]
+        val width = roi[2]
+        val height = roi[3]
+
+        val imgW = originalBitmap.width
+        val imgH = originalBitmap.height
+
+        val boxX = (xCenter * imgW).toInt()
+        val boxY = (yCenter * imgH).toInt()
+        val boxW = (width * imgW).toInt()
+        val boxH = (height * imgH).toInt()
+
+        val x1 = (boxX - boxW / 2).coerceAtLeast(0)
+        val y1 = (boxY - boxH / 2).coerceAtLeast(0)
+        val x2 = (boxX + boxW / 2).coerceAtMost(imgW - 1)
+        val y2 = (boxY + boxH / 2).coerceAtMost(imgH - 1)
 
         val mutableBitmap = originalBitmap.copy(Bitmap.Config.ARGB_8888, true)
         val canvas = Canvas(mutableBitmap)
@@ -297,7 +310,7 @@ class RoiScreen : AppCompatActivity() {
             style = Paint.Style.STROKE
             strokeWidth = 4f
         }
-        canvas.drawRect(left.toFloat(), top.toFloat(), right.toFloat(), bottom.toFloat(), paint)
+        canvas.drawRect(x1.toFloat(), y1.toFloat(), x2.toFloat(), y2.toFloat(), paint)
         return mutableBitmap
     }
 

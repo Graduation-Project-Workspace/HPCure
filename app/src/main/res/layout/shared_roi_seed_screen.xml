@@ -218,7 +218,8 @@
                         android:text="Customize"
                         android:textColor="#000000"
                         android:textStyle="bold"
-                        android:background="@drawable/button_background" />
+                        android:background="@drawable/button_background"
+                        android:visibility="gone"/>
                 </LinearLayout>
 
                 <!-- Right Side: Confirm ROI -->
@@ -226,7 +227,7 @@
                     android:id="@+id/confirm_roi_button"
                     android:layout_width="100dp"
                     android:layout_height="match_parent"
-                    android:text="Confirm ROI"
+                    android:text=""
                     android:textColor="#000000"
                     android:textStyle="bold"
                     android:background="@drawable/button_background"

@@ -46,7 +46,7 @@ class SeedScreen : AppCompatActivity() {
     private lateinit var mainContent: RelativeLayout
     private lateinit var patientName: TextView
     private lateinit var confirmButton: Button
-
+    private lateinit var customizeButton: Button
     private lateinit var mriSequence: MRISequence
     private var selectedMode: String = "Parallel"
 
@@ -68,7 +68,7 @@ class SeedScreen : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.roi_screen)
+        setContentView(R.layout.shared_roi_seed_screen)
 
         // --- Receive the roi_map from intent, if provided ---
         @Suppress("UNCHECKED_CAST")
@@ -158,6 +158,9 @@ class SeedScreen : AppCompatActivity() {
         btnGrpc = findViewById(R.id.btn_grpc)
         patientName = findViewById(R.id.patient_name)
         confirmButton = findViewById(R.id.confirm_roi_button)
+        confirmButton.text = "Confirm Seed"
+        customizeButton = findViewById(R.id.customize_button)
+
     }
 
     // Only use ROI received from RoiScreen, and predict SEED using it
@@ -200,6 +203,7 @@ class SeedScreen : AppCompatActivity() {
                     patientName.text = "Time Taken: $timeTaken ms"
                 }
                 confirmButton.visibility = View.VISIBLE
+                customizeButton.visibility = View.VISIBLE
             }
         }
     }
@@ -260,13 +264,18 @@ class SeedScreen : AppCompatActivity() {
         file?.let {
             val bitmap = FileManager.getProcessedImage(this, it)
             if (bitmap != null) {
+                val roi = roiMap[index]
                 val seed = seedMap[index]
-                val roiInt = pixelRoiMap[index]
-                val displayBitmap = if (seed != null && roiInt != null) {
-                    drawSeedPointInsideRoi(bitmap, roiInt, seed)
+                val displayBitmap = if (roi != null) {
+                    if (seed != null) {
+                        drawSeedPointInsideNormalizedRoi(bitmap, roi, seed)
+                    } else {
+                        drawNormalizedRoiOnly(bitmap, roi)
+                    }
                 } else {
                     bitmap
                 }
+
                 mriImage.apply {
                     setImageBitmap(displayBitmap)
                     scaleType = ImageView.ScaleType.FIT_CENTER
@@ -276,6 +285,81 @@ class SeedScreen : AppCompatActivity() {
         }
         updateNavigationButtons()
     }
+
+
+    private fun drawNormalizedRoiOnly(bitmap: Bitmap, roi: FloatArray): Bitmap {
+        val (xCenter, yCenter, width, height) = roi
+
+        val imgW = bitmap.width
+        val imgH = bitmap.height
+
+        val boxX = xCenter * imgW
+        val boxY = yCenter * imgH
+        val boxW = width * imgW
+        val boxH = height * imgH
+
+        val x1 = (boxX - boxW / 2).coerceAtLeast(0f)
+        val y1 = (boxY - boxH / 2).coerceAtLeast(0f)
+        val x2 = (boxX + boxW / 2).coerceAtMost(imgW.toFloat())
+        val y2 = (boxY + boxH / 2).coerceAtMost(imgH.toFloat())
+
+        val mutableBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true)
+        val canvas = Canvas(mutableBitmap)
+        val paint = Paint().apply {
+            color = Color.RED
+            style = Paint.Style.STROKE
+            strokeWidth = 4f
+        }
+        canvas.drawRect(x1, y1, x2, y2, paint)
+        return mutableBitmap
+    }
+
+    private fun drawSeedPointInsideNormalizedRoi(
+        bitmap: Bitmap,
+        roi: FloatArray,
+        seed: FloatArray
+    ): Bitmap {
+        val (xCenter, yCenter, width, height) = roi
+
+        val imgW = bitmap.width
+        val imgH = bitmap.height
+
+        val boxX = xCenter * imgW
+        val boxY = yCenter * imgH
+        val boxW = width * imgW
+        val boxH = height * imgH
+
+        val x1 = (boxX - boxW / 2).coerceAtLeast(0f)
+        val y1 = (boxY - boxH / 2).coerceAtLeast(0f)
+        val x2 = (boxX + boxW / 2).coerceAtMost(imgW.toFloat())
+        val y2 = (boxY + boxH / 2).coerceAtMost(imgH.toFloat())
+
+        val mutableBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true)
+        val canvas = Canvas(mutableBitmap)
+
+        // Draw ROI
+        val roiPaint = Paint().apply {
+            color = Color.RED
+            style = Paint.Style.STROKE
+            strokeWidth = 4f
+        }
+        canvas.drawRect(x1, y1, x2, y2, roiPaint)
+
+        // Draw seed inside ROI (normalized to ROI dimensions)
+        val seedX = x1 + seed[0] * (x2 - x1)
+        val seedY = y1 + seed[1] * (y2 - y1)
+
+        val seedPaint = Paint().apply {
+            color = Color.YELLOW
+            style = Paint.Style.FILL
+        }
+        canvas.drawCircle(seedX, seedY, 6f, seedPaint)
+
+        return mutableBitmap
+    }
+
+
+
 
     private fun setupImageNavigation() {
         prevImage.setOnClickListener {
@@ -345,7 +429,7 @@ class SeedScreen : AppCompatActivity() {
 
     private fun setupBackButton() {
         backButton.setOnClickListener {
-            val intent = Intent(this, UploadScreen::class.java)
+            val intent = Intent(this, RoiScreen::class.java)
             intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             startActivity(intent)
             finish()

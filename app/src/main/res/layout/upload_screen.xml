@@ -14,12 +14,12 @@
 
         <ImageView
             android:id="@+id/profile_icon"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:layout_marginStart="16dp"
+            android:layout_width="101dp"
+            android:layout_height="78dp"
             android:layout_centerVertical="true"
-            android:src="@drawable/ic_home_screen"
-            android:contentDescription="Profile Icon"/>
+            android:layout_marginStart="16dp"
+            android:contentDescription="Profile Icon"
+            android:src="@drawable/ic_home_screen" />
 
         <TextView
             android:id="@+id/tumor_track"
