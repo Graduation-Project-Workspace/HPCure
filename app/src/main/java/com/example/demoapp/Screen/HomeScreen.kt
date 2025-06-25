@@ -5,18 +5,14 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
-import android.provider.DocumentsContract
 import android.util.Log
 import android.view.View
-import android.widget.Button
+import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.RelativeLayout
 import android.widget.Toast
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.viewinterop.AndroidView
 import com.example.demoapp.R
 import com.example.demoapp.Utils.FileManager
 import kotlinx.coroutines.CoroutineScope
@@ -30,43 +26,30 @@ class HomeScreen : BaseActivity() {
     private val PERMISSION_REQUEST_CODE = 123
 
     private var uploadedImage: ImageView? = null
+    private lateinit var loadingOverlay: FrameLayout
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        setContentView(R.layout.home_screen)
+
         FileManager.initialize(this)
+        loadingOverlay = findViewById(R.id.loading_overlay)
+
+        val uploadContainer = findViewById<RelativeLayout>(R.id.upload_container)
+        val uploadedImageView = findViewById<ImageView>(R.id.uploaded_image)
+        val menuButton = findViewById<ImageButton>(R.id.menu_button)
+
+        uploadedImage = uploadedImageView
+
+        menuButton.setOnClickListener { openDrawer() }
+
+        uploadContainer.setOnClickListener {
+            openDirectoryPicker()
+        }
     }
 
     override fun getMainContent(): @Composable () -> Unit = {
-        AndroidView(
-            modifier = Modifier.fillMaxSize(),
-            factory = { ctx ->
-                val view = View.inflate(ctx, R.layout.home_screen, null)
-                val uploadContainer = view.findViewById<RelativeLayout>(R.id.upload_container)
-                val processButton = view.findViewById<Button>(R.id.process_button)
-                val uploadedImageView = view.findViewById<ImageView>(R.id.uploaded_image)
-                val nextButton = view.findViewById<Button>(R.id.go_to_next_screen)
-                val menuButton = view.findViewById<ImageButton?>(R.id.menu_button)
-                uploadedImage = uploadedImageView
-                menuButton?.setOnClickListener { openDrawer() }
 
-                uploadContainer.setOnClickListener {
-                    openDirectoryPicker()
-                }
-                processButton.setOnClickListener {
-                    if (FileManager.getTotalFiles() > 0) {
-                        val intent = Intent(ctx, HomeScreenUpload::class.java)
-                        ctx.startActivity(intent)
-                    } else {
-                        Toast.makeText(ctx, "Please select a DICOM directory first", Toast.LENGTH_SHORT).show()
-                    }
-                }
-                nextButton.setOnClickListener {
-                    val intent = Intent(ctx, ModelScreen::class.java)
-                    ctx.startActivity(intent)
-                }
-                view
-            }
-        )
     }
 
     private fun openDirectoryPicker() {
@@ -85,67 +68,53 @@ class HomeScreen : BaseActivity() {
         }
     }
 
-    private fun getRealPathFromURI(uri: Uri): String? {
-        return try {
-            val docUri = DocumentsContract.buildDocumentUriUsingTree(uri,
-                DocumentsContract.getTreeDocumentId(uri))
-            docUri.toString()
-        } catch (e: Exception) {
-            e.printStackTrace()
-            null
-        }
+    private fun showLoading() {
+        loadingOverlay.visibility = View.VISIBLE
+    }
+
+    private fun hideLoading() {
+        loadingOverlay.visibility = View.GONE
     }
 
     private fun handleDicomDirectory(uri: Uri) {
+        showLoading()
         CoroutineScope(Dispatchers.Main).launch {
             try {
                 val success = withContext(Dispatchers.IO) {
                     try {
+                        // Take persistent permissions
                         val takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION or
                                 Intent.FLAG_GRANT_WRITE_URI_PERMISSION
                         contentResolver.takePersistableUriPermission(uri, takeFlags)
-                        FileManager.loadDirectory(this@HomeScreen, uri)
+
+                        val result = FileManager.loadDirectory(this@HomeScreen, uri)
+                        val fileCount = FileManager.getTotalFiles()
+                        Log.d("UploadScreen", "Files loaded: $fileCount")
+                        result && fileCount > 0
                     } catch (e: Exception) {
-                        Log.e("HomeScreen", "Error in loadDirectory", e)
+                        Log.e("UploadScreen", "Error in loadDirectory", e)
                         false
                     }
                 }
+                hideLoading()
+
                 if (success) {
-                    FileManager.getCurrentFile()?.let { file ->
-                        try {
-                            val bitmap = FileManager.getProcessedImage(this@HomeScreen, file)
-                            bitmap?.let {
-                                uploadedImage?.setImageBitmap(it)
-                                uploadedImage?.visibility = ImageView.VISIBLE
-                                Toast.makeText(this@HomeScreen, "DICOM directory loaded successfully", Toast.LENGTH_SHORT).show()
-                            } ?: run {
-                                showErrorDialog("Failed to process image")
-                            }
-                        } catch (e: Exception) {
-                            Log.e("HomeScreen", "Error processing image", e)
-                            showErrorDialog("Error processing image: ${e.message}")
-                        }
-                    }
+                    Log.d("UploadScreen", "Moving to RoiScreen with ${FileManager.getTotalFiles()} files")
+
+                    // Directly go to the next screen
+                    val intent = Intent(this@HomeScreen, HomeScreenUpload::class.java)
+                    startActivity(intent)
+
+                    // Don't finish the activity yet - let them go back if needed
+                    // finish()
                 } else {
-                    showErrorDialog("Couldn't process your files. Please try again.")
+                    showErrorDialog("No valid DICOM files found in the selected directory.")
                 }
             } catch (e: Exception) {
-                Log.e("HomeScreen", "Error in handleDicomDirectory", e)
+                hideLoading()
+                Log.e("UploadScreen", "Error in handleDicomDirectory", e)
                 showErrorDialog("Error processing directory: ${e.message}")
             }
-        }
-    }
-
-    private fun checkAndRequestPermissions() {
-        val permissions = arrayOf(
-            android.Manifest.permission.READ_EXTERNAL_STORAGE,
-            android.Manifest.permission.WRITE_EXTERNAL_STORAGE
-        )
-        if (checkSelfPermission(android.Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED ||
-            checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(permissions, PERMISSION_REQUEST_CODE)
-        } else {
-            openDirectoryPicker()
         }
     }
 

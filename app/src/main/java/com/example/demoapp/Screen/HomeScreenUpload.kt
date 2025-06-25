@@ -58,9 +58,6 @@ class HomeScreenUpload : BaseActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        // Initialize GrpcNetwork
-        val seedPredictor = SeedPredictor(context = this)
-        val roiPredictor = RoiPredictor(context = this)
 
         super.onCreate(savedInstanceState)
 

@@ -1,5 +1,4 @@
-<RelativeLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/home_screen"
     android:layout_width="match_parent"
@@ -15,12 +14,12 @@
 
         <ImageView
             android:id="@+id/profile_icon"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:layout_marginStart="16dp"
+            android:layout_width="117dp"
+            android:layout_height="85dp"
             android:layout_centerVertical="true"
-            android:src="@drawable/ic_home_screen"
-            android:contentDescription="Profile Icon" />
+            android:layout_marginStart="16dp"
+            android:contentDescription="Profile Icon"
+            android:src="@drawable/ic_home_screen" />
 
         <TextView
             android:id="@+id/tumor_track"
@@ -34,8 +33,8 @@
 
         <ImageButton
             android:id="@+id/menu_button"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:layout_alignParentEnd="true"
             android:layout_marginEnd="16dp"
             android:layout_centerVertical="true"
@@ -64,45 +63,42 @@
 
         <RelativeLayout
             android:id="@+id/upload_container"
-            android:layout_width="250dp"
-            android:layout_height="300dp"
+            android:layout_width="285dp"
+            android:layout_height="341dp"
             android:layout_marginTop="20dp"
             android:background="@drawable/ic_upload"
-            android:padding="8dp"
-            android:elevation="4dp"
             android:clickable="true"
-            android:focusable="true">
+            android:elevation="4dp"
+            android:focusable="true"
+            android:padding="8dp"
+            android:importantForAccessibility="no">
+
 
             <ImageView
                 android:id="@+id/uploaded_image"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:scaleType="fitCenter"
                 android:adjustViewBounds="true"
                 android:padding="4dp"
-                android:visibility="gone"/>
+                android:scaleType="fitCenter"
+                android:visibility="gone" />
         </RelativeLayout>
 
-        <Button
-            android:id="@+id/process_button"
-            android:layout_width="200dp"
-            android:layout_height="50dp"
-            android:layout_marginTop="20dp"
-            android:text="Upload MRI"
-            android:textSize="18sp"
-            android:textColor="#000000"
-            android:background="@drawable/rounded_background"
-            android:backgroundTint="#FFFFFF" />
-
-        <Button
-            android:id="@+id/go_to_next_screen"
-            android:layout_width="200dp"
-            android:layout_height="50dp"
-            android:layout_marginTop="20dp"
-            android:text="Go to Next Screen"
-            android:textSize="18sp"
-            android:textColor="#000000"
-            android:background="@drawable/rounded_background"
-            android:backgroundTint="#FFFFFF" />
     </LinearLayout>
+    <FrameLayout
+        android:id="@+id/loading_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#99000000"
+        android:visibility="gone"
+        android:clickable="true"
+        android:focusable="true">
+
+        <ProgressBar
+            android:id="@+id/loading_spinner"
+            style="?android:attr/progressBarStyleLarge"
+            android:layout_gravity="center"
+            android:layout_width="72dp"
+            android:layout_height="72dp"/>
+    </FrameLayout>
 </RelativeLayout>
