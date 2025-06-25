@@ -37,7 +37,7 @@
             android:theme="@style/Theme.AppCompat.Light.NoActionBar"
             />
 
-        <activity android:name=".Screen.FuzzyScreen"
+        <activity android:name=".Screen.FuzzyAndResultScreen"
             android:exported="true"
             android:theme="@style/Theme.AppCompat.Light.NoActionBar"
             />

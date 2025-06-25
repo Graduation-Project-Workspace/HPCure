@@ -17,8 +17,8 @@ import com.example.demoapp.Core.SeedPredictor
 import com.example.demoapp.Core.VolumeEstimator
 import com.example.demoapp.Model.CancerVolume
 import com.example.demoapp.Model.MRISequence
-import com.example.demoapp.Model.ROI
 import com.example.demoapp.R
+import com.example.demoapp.Utils.FileManager
 import com.example.demoapp.Utils.ResultsDataHolder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -48,7 +48,7 @@ class ResultsScreen : AppCompatActivity() {
     private var timeTaken: Long = 0
 
     companion object {
-        private const val TAG = "ResultsScreen"
+        const val TAG = "ResultsScreen"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -56,23 +56,22 @@ class ResultsScreen : AppCompatActivity() {
         setContentView(R.layout.results_screen)
 
         try {
-            // Try to get data from serializable extras first
+            // Always use ResultsDataHolder as the source of truth for alphaCut and timeTaken
             intent.getSerializableExtra("mri_sequence")?.let {
                 mriSequence = it as MRISequence
             }
             intent.getSerializableExtra("cancer_volume")?.let {
                 cancerVolume = it as CancerVolume
             }
-            alphaCut = intent.getFloatExtra("alpha_cut", 50f)
-            timeTaken = intent.getLongExtra("time_taken", 0)
+            // Use ResultsDataHolder for alphaCut and timeTaken
+            alphaCut = ResultsDataHolder.alphaCut
+            timeTaken = ResultsDataHolder.timeTaken
 
-            // If serialization failed, try the DataHolder
+            // If serialization failed, try the DataHolder for mriSequence/cancerVolume
             if (!::mriSequence.isInitialized || !::cancerVolume.isInitialized) {
                 Log.d(TAG, "Using ResultsDataHolder as fallback")
                 ResultsDataHolder.mriSequence?.let { mriSequence = it }
                 ResultsDataHolder.cancerVolume?.let { cancerVolume = it }
-                alphaCut = ResultsDataHolder.alphaCut
-                timeTaken = ResultsDataHolder.timeTaken
             }
 
             if (!::mriSequence.isInitialized || !::cancerVolume.isInitialized) {
@@ -137,6 +136,13 @@ class ResultsScreen : AppCompatActivity() {
             val startTime = System.currentTimeMillis()
             CoroutineScope(Dispatchers.IO).launch {
                 try {
+                    val bitmaps = FileManager.getAllFiles().mapNotNull { file ->
+                        FileManager.getProcessedImage(this@ResultsScreen, file)
+                    }
+
+                    alphaCut = intent.getFloatExtra("alpha_cut", 50f)
+                    //Alpha cut value
+                    Log.d(TAG, "Alpha cut value: $alphaCut")
                     // Create fresh predictors
                     val roiPredictor = RoiPredictor(this@ResultsScreen)
                     val seedPredictor = SeedPredictor(this@ResultsScreen)
@@ -148,6 +154,10 @@ class ResultsScreen : AppCompatActivity() {
                         roiPredictor = roiPredictor,
                         seedPredictor = seedPredictor
                     )
+                    mriSequence = MRISequence(
+                        images = bitmaps,
+                        metadata = HashMap()
+                    );
 
                     // Simply use the existing estimateVolume method that handles all conversions
                     val newCancerVolume = volumeEstimator.estimateVolume(mriSequence, alphaCut)
@@ -158,7 +168,7 @@ class ResultsScreen : AppCompatActivity() {
 
                     withContext(Dispatchers.Main) {
                         hideLoadingState()
-                        tumorVolume.text = "Tumor Volume: ${cancerVolume.volume} cm³"
+                        tumorVolume.text = "Tumor Volume: ${cancerVolume.volume} mm³"
                         patientNameTextView.text = "Processing Time: ${timeTaken}ms"
                         loadCurrentImage()
                         Toast.makeText(this@ResultsScreen, "Recalculation complete", Toast.LENGTH_SHORT).show()
@@ -199,12 +209,12 @@ class ResultsScreen : AppCompatActivity() {
                 for (x in 0 until bitmap.width) {
                     val pixel = bitmap[x, y]
                     if (cancerVolume.affinityMatrix[currentImageIndex][y][x] < alphaCut / 100.0f) {
-                        // Highlight cancer area with a reddish overlay
-                        val r = (pixel shr 16 and 0xFF) * 1.5f
-                        val g = (pixel shr 8 and 0xFF) * 0.7f
-                        val b = (pixel and 0xFF) * 0.7f
+                        // Highlight cancer area with a bright red overlay
+                        val r = 255
+                        val g = (pixel shr 8 and 0xFF) * 0.3f // reduce green
+                        val b = (pixel and 0xFF) * 0.3f // reduce blue
                         bitmap[x, y] = (0xFF shl 24) or
-                                (r.coerceAtMost(255f).toInt() shl 16) or
+                                (r shl 16) or
                                 (g.coerceAtMost(255f).toInt() shl 8) or
                                 b.coerceAtMost(255f).toInt()
                     }
@@ -242,7 +252,7 @@ class ResultsScreen : AppCompatActivity() {
     }
     private fun setupBackButton() {
         backButton.setOnClickListener {
-            val intent = Intent(this, FuzzyScreen::class.java)
+            val intent = Intent(this, FuzzyAndResultScreen::class.java)
             intent.putExtra("shouldCleanup", false)
             intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             startActivity(intent)

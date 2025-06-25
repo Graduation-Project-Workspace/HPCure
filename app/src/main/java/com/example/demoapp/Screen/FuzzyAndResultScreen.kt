@@ -7,7 +7,6 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
-import android.graphics.RectF
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -19,44 +18,55 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import com.example.demoapp.Core.Interfaces.IRoiPredictor
-import com.example.demoapp.Core.Interfaces.ISeedPrecitor
 import com.example.demoapp.Core.ParallelFuzzySystem
-import com.example.demoapp.Core.VolumeEstimator
 import com.example.demoapp.Model.CancerVolume
 import com.example.demoapp.Model.MRISequence
 import com.example.demoapp.Model.ROI
 import com.example.demoapp.R
+
 import com.example.demoapp.Utils.FileManager
-import com.example.demoapp.Utils.ResultsDataHolder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @RequiresApi(Build.VERSION_CODES.N)
-class FuzzyScreen : AppCompatActivity() {
-    private lateinit var mriImage: ImageView
-    private lateinit var alphaCutValue: TextView
-    private lateinit var alphaCutSlider: SeekBar
-    private lateinit var imageCount: TextView
-    private lateinit var prevImage: ImageButton
-    private lateinit var nextImage: ImageButton
+class FuzzyAndResultScreen : AppCompatActivity() {
+    // Fuzzy Layout Views
+    private lateinit var fuzzyMriImage: ImageView
+    private lateinit var fuzzyAlphaCutValue: TextView
+    private lateinit var fuzzyAlphaCutSlider: SeekBar
+    private lateinit var fuzzyImageCount: TextView
+    private lateinit var fuzzyPrevImage: ImageButton
+    private lateinit var fuzzyNextImage: ImageButton
+    private lateinit var fuzzyCalculateButton: Button
+    private lateinit var fuzzyCalculateVolumeButton: Button
+    private lateinit var fuzzyPatientName: TextView
+    private lateinit var fuzzyBackButton: ImageButton
+
+    // Results Layout Views
+    private lateinit var resultsMriImage: ImageView
+    private lateinit var resultsImageCount: TextView
+    private lateinit var resultsPrevImage: ImageButton
+    private lateinit var resultsNextImage: ImageButton
+    private lateinit var resultsTumorVolume: TextView
+    private lateinit var resultsPatientName: TextView
+    private lateinit var resultsRecalculateButton: Button
+    private lateinit var resultsBackButton: ImageButton
+
+    // Common Views
     private lateinit var loadingOverlay: RelativeLayout
-    private lateinit var calculateButton: Button
-    private lateinit var calculateVolumeButton: Button
-    private lateinit var patientNameTextView: TextView
+    private lateinit var fuzzyLayout: RelativeLayout
+    private lateinit var resultsLayout: RelativeLayout
+
     private var fuzzyCalculationTime: Long = 0
     private var currentAlphaCutValue: Float = 50.00f
+    private var roiTimeTaken: Long = 0
+    private var seedTimeTaken: Long = 0
     private lateinit var cancerVolume: CancerVolume
     private lateinit var mriSequence: MRISequence
-    private lateinit var backButton: ImageButton
-    // These are filled from intent extras
     private val roiMap: MutableMap<Int, FloatArray> = mutableMapOf()
     private val seedMap: MutableMap<Int, FloatArray> = mutableMapOf()
-    private val context = this
-
-    // Store fuzzy highlight state per slice
     private val fuzzyHighlightMap: MutableMap<Int, Boolean> = mutableMapOf()
 
     private val storagePermissionLauncher = registerForActivityResult(
@@ -72,7 +82,9 @@ class FuzzyScreen : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.fuzzy_screen)
+        setContentView(R.layout.fuzzy_and_result_screen)
+        roiTimeTaken = intent.getLongExtra("roi_time_taken", 0)
+        seedTimeTaken = intent.getLongExtra("seed_time_taken", 0)
 
         @Suppress("UNCHECKED_CAST")
         intent.getSerializableExtra("roi_map")?.let { extra ->
@@ -132,54 +144,121 @@ class FuzzyScreen : AppCompatActivity() {
         initializeViews()
         setupImageNavigation()
         setupAlphaCutControl()
+        setupCalculateButton()
+        setupBackButtons()
         loadCurrentImage()
         updateImageCount()
-        setupCalculateButton()
-        setupBackButton()
-        setupCalculateVolumeButton()
+        showFuzzyLayout()
     }
 
     private fun initializeViews() {
-        mriImage = findViewById(R.id.mri_image)
-        alphaCutValue = findViewById(R.id.alpha_cut_value)
-        alphaCutSlider = findViewById(R.id.alpha_cut_slider)
-        imageCount = findViewById(R.id.image_count)
-        prevImage = findViewById(R.id.prev_image)
-        nextImage = findViewById(R.id.next_image)
-        calculateButton = findViewById(R.id.calculate_button)
+        // Fuzzy Layout Views
+        fuzzyLayout = findViewById(R.id.fuzzy_layout)
+        fuzzyMriImage = findViewById(R.id.fuzzy_mri_image)
+        fuzzyAlphaCutValue = findViewById(R.id.fuzzy_alpha_cut_value)
+        fuzzyAlphaCutSlider = findViewById(R.id.fuzzy_alpha_cut_slider)
+        fuzzyImageCount = findViewById(R.id.fuzzy_image_count)
+        fuzzyPrevImage = findViewById(R.id.fuzzy_prev_image)
+        fuzzyNextImage = findViewById(R.id.fuzzy_next_image)
+        fuzzyCalculateButton = findViewById(R.id.fuzzy_calculate_button)
+        fuzzyCalculateVolumeButton = findViewById(R.id.fuzzy_calculate_volume_button)
+        fuzzyPatientName = findViewById(R.id.fuzzy_patient_name)
+        fuzzyBackButton = findViewById(R.id.fuzzy_back_button)
+
+        // Results Layout Views
+        resultsLayout = findViewById(R.id.results_layout)
+        resultsMriImage = findViewById(R.id.results_mri_image)
+        resultsImageCount = findViewById(R.id.results_image_count)
+        resultsPrevImage = findViewById(R.id.results_prev_image)
+        resultsNextImage = findViewById(R.id.results_next_image)
+        resultsTumorVolume = findViewById(R.id.results_tumor_volume)
+        resultsPatientName = findViewById(R.id.results_patient_name)
+        resultsRecalculateButton = findViewById(R.id.results_recalculate_button)
+        resultsBackButton = findViewById(R.id.results_back_button)
+
+        // Common Views
         loadingOverlay = findViewById(R.id.loading_overlay)
-        calculateVolumeButton = findViewById(R.id.calculate_volume_button)
-        patientNameTextView = findViewById(R.id.patient_name)
-        backButton = findViewById(R.id.back_button)
-        calculateVolumeButton.visibility = View.GONE
-        updateDisplay()
+    }
+    private fun showFuzzyLayout() {
+        fuzzyLayout.visibility = View.VISIBLE
+        resultsLayout.visibility = View.GONE
+    }
+
+    private fun showResultsLayout() {
+        fuzzyLayout.visibility = View.GONE
+        resultsLayout.visibility = View.VISIBLE
     }
 
     private fun setupCalculateButton() {
-        calculateButton.setOnClickListener {
+        fuzzyCalculateButton.setOnClickListener {
             showLoadingState()
             val startTime = System.currentTimeMillis()
 
-            // Use a coroutine for the fuzzy calculation
             CoroutineScope(Dispatchers.Default).launch {
-                // Simulating fuzzy calculation
-                highlightFuzzyOnAllSlices()
+                val bitmaps = FileManager.getAllFiles().mapNotNull { file ->
+                    FileManager.getProcessedImage(this@FuzzyAndResultScreen, file)
+                }
+                val alphaCut = currentAlphaCutValue
+                val roiList = bitmaps.indices.map { idx ->
+                    roiMap[idx]?.let { roiArr ->
+                        val imgW = bitmaps[idx].width
+                        val imgH = bitmaps[idx].height
+                        val boxX = roiArr[0] * imgW
+                        val boxY = roiArr[1] * imgH
+                        val boxW = roiArr[2] * imgW
+                        val boxH = roiArr[3] * imgH
+                        ROI(
+                            xMin = (boxX - boxW / 2).coerceAtLeast(0f).toInt(),
+                            yMin = (boxY - boxH / 2).coerceAtLeast(0f).toInt(),
+                            xMax = (boxX + boxW / 2).coerceAtMost(imgW.toFloat()).toInt(),
+                            yMax = (boxY + boxH / 2).coerceAtMost(imgH.toFloat()).toInt()
+                        )
+                    } ?: ROI(0, 0, 0, 0)
+                }
 
-                fuzzyCalculationTime = System.currentTimeMillis() - startTime
+                val seedPoints = bitmaps.indices.map { idx ->
+                    seedMap[idx]?.let { seedArr ->
+                        val roi = roiList[idx]
+                        Pair(
+                            (seedArr[0] * (roi.xMax - roi.xMin) + roi.xMin).toInt(),
+                            (seedArr[1] * (roi.yMax - roi.yMin) + roi.yMin).toInt()
+                        )
+                    } ?: Pair(0, 0)
+                }
+
+                mriSequence = MRISequence(images = bitmaps, metadata = HashMap())
+                val fuzzySystem = ParallelFuzzySystem()
+                cancerVolume = fuzzySystem.estimateVolume(mriSequence, roiList, seedPoints, alphaCut)
+                val elapsed = System.currentTimeMillis() - startTime
 
                 withContext(Dispatchers.Main) {
                     hideLoadingState()
-                    loadCurrentImage()
-                    calculateVolumeButton.visibility = View.VISIBLE
-                    calculateButton.text = "Re-calculate Fuzzy"
+                    val fuzzyTimeTaken = elapsed
+                    val totalTime = roiTimeTaken + seedTimeTaken + fuzzyTimeTaken
 
-                    // Update patient name TextView to show calculation time
-                    patientNameTextView.text = "Fuzzy calculation: ${fuzzyCalculationTime}ms"
+                    resultsTumorVolume.text = "Tumor Volume: ${cancerVolume.volume} mm³"
+                    resultsPatientName.text = """
+        Total Time: ${totalTime}ms
+    """.trimIndent()
+
+                    showResultsLayout()
+                    loadCurrentResultsImage()
                 }
             }
         }
     }
 
+    private fun setupBackButtons() {
+        fuzzyBackButton.setOnClickListener {
+            finish()
+        }
+
+        resultsBackButton.setOnClickListener {
+            showFuzzyLayout()
+        }
+    }
+
+    /*
     private fun setupCalculateVolumeButton() {
         calculateVolumeButton.setOnClickListener {
             showLoadingState()
@@ -189,7 +268,7 @@ class FuzzyScreen : AppCompatActivity() {
                     FileManager.getProcessedImage(this@FuzzyScreen, file)
                 }
                 val alphaCut = currentAlphaCutValue
-
+                Log.d(TAG, "Alpha cut value: $alphaCut")
                 val roiList = bitmaps.indices.map { idx ->
                     roiMap[idx]?.let { roiArr ->
                         val imgW = bitmaps[idx].width
@@ -243,29 +322,27 @@ class FuzzyScreen : AppCompatActivity() {
             }
         }
     }
+    */
 
-    // Mark all slices as having fuzzy highlight
-    private fun highlightFuzzyOnAllSlices() {
-        val total = FileManager.getTotalFiles()
-        for (i in 0 until total) {
-            fuzzyHighlightMap[i] = true
+    private fun setupImageNavigation() {
+        // Fuzzy navigation
+        fuzzyPrevImage.setOnClickListener { navigateImage(-1) }
+        fuzzyNextImage.setOnClickListener { navigateImage(1) }
+
+        // Results navigation
+        resultsPrevImage.setOnClickListener { navigateImage(-1) }
+        resultsNextImage.setOnClickListener { navigateImage(1) }
+    }
+
+    private fun navigateImage(direction: Int) {
+        val moved = if (direction < 0) FileManager.moveToPrevious() else FileManager.moveToNext()
+        if (moved) {
+            updateImageCount()
+            loadCurrentImage()
+            if (resultsLayout.visibility == View.VISIBLE) {
+                loadCurrentResultsImage()
+            }
         }
-    }
-
-    private fun showLoadingState() {
-        loadingOverlay.alpha = 0f
-        loadingOverlay.visibility = View.VISIBLE
-        loadingOverlay.animate().alpha(1f).setDuration(200).start()
-        calculateButton.isEnabled = false
-        calculateVolumeButton.isEnabled = false
-    }
-
-    private fun hideLoadingState() {
-        loadingOverlay.animate().alpha(0f).setDuration(200).withEndAction {
-            loadingOverlay.visibility = View.GONE
-            calculateButton.isEnabled = true
-            calculateVolumeButton.isEnabled = true
-        }.start()
     }
 
     private fun loadCurrentImage() {
@@ -278,21 +355,62 @@ class FuzzyScreen : AppCompatActivity() {
                 val seed = seedMap[index]
                 val fuzzy = fuzzyHighlightMap[index] == true
                 val displayBitmap = when {
-                    roi != null && seed != null && fuzzy -> drawFuzzyHighlight(drawSeedPointInsideNormalizedRoi(bitmap, roi, seed), roi)
                     roi != null && seed != null -> drawSeedPointInsideNormalizedRoi(bitmap, roi, seed)
-                    roi != null && fuzzy -> drawFuzzyHighlight(drawNormalizedRoiOnly(bitmap, roi), roi)
                     roi != null -> drawNormalizedRoiOnly(bitmap, roi)
                     else -> bitmap
                 }
-                mriImage.apply {
-                    setImageBitmap(displayBitmap)
-                    scaleType = ImageView.ScaleType.FIT_CENTER
-                    adjustViewBounds = true
-                }
+                fuzzyMriImage.setImageBitmap(displayBitmap)
             }
         }
         updateNavigationButtons()
     }
+
+    private fun loadCurrentResultsImage() {
+        val file = FileManager.getCurrentFile()
+        val index = FileManager.getCurrentIndex() - 1
+        file?.let {
+            val bitmap = FileManager.getProcessedImage(this, it)
+            if (bitmap != null && ::cancerVolume.isInitialized) {
+                val displayBitmap = highlightCancerArea(bitmap, index)
+                resultsMriImage.setImageBitmap(displayBitmap)
+            }
+        }
+    }
+
+    private fun highlightCancerArea(bitmap: Bitmap, sliceIndex: Int): Bitmap {
+        val mutableBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true)
+
+        if (sliceIndex < cancerVolume.affinityMatrix.size) {
+            val affinityMatrix = cancerVolume.affinityMatrix[sliceIndex]
+            for (y in 0 until mutableBitmap.height) {
+                for (x in 0 until mutableBitmap.width) {
+                    if (y < affinityMatrix.size && x < affinityMatrix[y].size) {
+                        if (affinityMatrix[y][x] < currentAlphaCutValue / 100.0f) {
+                            val pixel = mutableBitmap.getPixel(x, y)
+                            val r = (Color.red(pixel) * 1.5f).coerceAtMost(255f).toInt()
+                            val g = (Color.green(pixel) * 0.7f).coerceAtMost(255f).toInt()
+                            val b = (Color.blue(pixel) * 0.7f).coerceAtMost(255f).toInt()
+                            mutableBitmap.setPixel(x, y, Color.rgb(r, g, b))
+                        }
+                    }
+                }
+            }
+        }
+        return mutableBitmap
+    }
+
+    private fun showLoadingState() {
+        loadingOverlay.visibility = View.VISIBLE
+        fuzzyCalculateButton.isEnabled = false
+        resultsRecalculateButton.isEnabled = false
+    }
+
+    private fun hideLoadingState() {
+        loadingOverlay.visibility = View.GONE
+        fuzzyCalculateButton.isEnabled = true
+        resultsRecalculateButton.isEnabled = true
+    }
+
 
     private fun drawNormalizedRoiOnly(bitmap: Bitmap, roi: FloatArray): Bitmap {
         val (xCenter, yCenter, width, height) = roi
@@ -321,11 +439,7 @@ class FuzzyScreen : AppCompatActivity() {
         return mutableBitmap
     }
 
-    private fun drawSeedPointInsideNormalizedRoi(
-        bitmap: Bitmap,
-        roi: FloatArray,
-        seed: FloatArray
-    ): Bitmap {
+    private fun drawSeedPointInsideNormalizedRoi(bitmap: Bitmap, roi: FloatArray, seed: FloatArray): Bitmap {
         val (xCenter, yCenter, width, height) = roi
 
         val imgW = bitmap.width
@@ -365,91 +479,43 @@ class FuzzyScreen : AppCompatActivity() {
         return mutableBitmap
     }
 
-    // Draw a blue border around the ROI to highlight fuzzy
-    private fun drawFuzzyHighlight(bitmap: Bitmap, roi: FloatArray): Bitmap {
-        val (xCenter, yCenter, width, height) = roi
-
-        val imgW = bitmap.width
-        val imgH = bitmap.height
-
-        val boxX = xCenter * imgW
-        val boxY = yCenter * imgH
-        val boxW = width * imgW
-        val boxH = height * imgH
-
-        val x1 = (boxX - boxW / 2).coerceAtLeast(0f)
-        val y1 = (boxY - boxH / 2).coerceAtLeast(0f)
-        val x2 = (boxX + boxW / 2).coerceAtMost(imgW.toFloat())
-        val y2 = (boxY + boxH / 2).coerceAtMost(imgH.toFloat())
-
-        val mutableBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true)
-        val canvas = Canvas(mutableBitmap)
-        val paint = Paint().apply {
-            color = Color.BLUE
-            style = Paint.Style.STROKE
-            strokeWidth = 8f
-            isAntiAlias = true
-        }
-
-        // Draw an ellipse/oval instead of a rectangle
-        val oval = RectF(x1, y1, x2, y2)
-        canvas.drawOval(oval, paint)
-
-        return mutableBitmap
-    }
-
-
-    private fun setupImageNavigation() {
-        prevImage.setOnClickListener {
-            if (FileManager.moveToPrevious()) {
-                loadCurrentImage()
-                updateImageCount()
-            }
-        }
-        nextImage.setOnClickListener {
-            if (FileManager.moveToNext()) {
-                loadCurrentImage()
-                updateImageCount()
-            }
-        }
-    }
-    private fun setupBackButton() {
-        backButton.setOnClickListener {
-            val intent = Intent(this, SeedScreen::class.java)
-            intent.putExtra("shouldCleanup", false)
-            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-            startActivity(intent)
-            finish()
-        }
-    }
 
     private fun updateImageCount() {
-        imageCount.text = "${FileManager.getCurrentIndex()}/${FileManager.getTotalFiles()}"
+        val countText = "${FileManager.getCurrentIndex()}/${FileManager.getTotalFiles()}"
+        fuzzyImageCount.text = countText
+        resultsImageCount.text = countText
     }
 
     private fun updateNavigationButtons() {
         val currentIndex = FileManager.getCurrentIndex()
         val totalFiles = FileManager.getTotalFiles()
-        prevImage.visibility = if (currentIndex > 1) ImageButton.VISIBLE else ImageButton.INVISIBLE
-        nextImage.visibility = if (currentIndex < totalFiles) ImageButton.VISIBLE else ImageButton.INVISIBLE
+
+        // Update fuzzy navigation
+        fuzzyPrevImage.visibility = if (currentIndex > 1) View.VISIBLE else View.INVISIBLE
+        fuzzyNextImage.visibility = if (currentIndex < totalFiles) View.VISIBLE else View.INVISIBLE
+
+        // Update results navigation
+        resultsPrevImage.visibility = if (currentIndex > 1) View.VISIBLE else View.INVISIBLE
+        resultsNextImage.visibility = if (currentIndex < totalFiles) View.VISIBLE else View.INVISIBLE
     }
 
     private fun setupAlphaCutControl() {
-        alphaCutSlider.max = 10000 // For 2 decimal precision
-        alphaCutSlider.progress = (currentAlphaCutValue * 100).toInt()
-        updateDisplay()
-        alphaCutSlider.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+        fuzzyAlphaCutSlider.max = 10000
+        fuzzyAlphaCutSlider.progress = (currentAlphaCutValue * 100).toInt()
+        updateAlphaCutDisplay()
+
+        fuzzyAlphaCutSlider.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 currentAlphaCutValue = progress / 100f
-                updateDisplay()
+                updateAlphaCutDisplay()
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
     }
 
-    private fun updateDisplay() {
-        alphaCutValue.text = "%.2f%%".format(currentAlphaCutValue)
+    private fun updateAlphaCutDisplay() {
+        fuzzyAlphaCutValue.text = "%.2f%%".format(currentAlphaCutValue)
     }
 
     /*

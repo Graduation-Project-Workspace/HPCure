@@ -241,6 +241,7 @@ class RoiScreen : AppCompatActivity() {
             val roiHashMap = HashMap<Int, FloatArray>(roiMap)
             val intent = Intent(this, SeedScreen::class.java)
             intent.putExtra("roi_map", roiHashMap)
+            intent.putExtra("roi_time_taken", patientName.text.toString().replace("Time Taken: ", "").replace(" ms", "").toLong())
             intent.putExtra("shouldCleanup", false)
             startActivity(intent)
         }

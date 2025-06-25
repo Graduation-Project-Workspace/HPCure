@@ -6,22 +6,23 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
+    <!-- Fuzzy Screen Layout -->
     <RelativeLayout
-        android:id="@+id/main_content"
+        android:id="@+id/fuzzy_layout"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="#071E22">
 
-        <!-- Header -->
+        <!-- Fuzzy Header -->
         <RelativeLayout
-            android:id="@+id/header"
+            android:id="@+id/fuzzy_header"
             android:layout_width="match_parent"
             android:layout_height="56dp"
             android:background="#1E2324"
             android:elevation="4dp">
 
             <ImageButton
-                android:id="@+id/back_button"
+                android:id="@+id/fuzzy_back_button"
                 android:layout_width="48dp"
                 android:layout_height="48dp"
                 android:padding="12dp"
@@ -34,7 +35,7 @@
                 app:tint="#FFFFFF" />
 
             <TextView
-                android:id="@+id/tumor_track"
+                android:id="@+id/fuzzy_title"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_centerInParent="true"
@@ -43,15 +44,14 @@
                 android:textColor="#FFFFFF" />
         </RelativeLayout>
 
-        <!-- Content Container -->
+        <!-- Fuzzy Content Container -->
         <RelativeLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:layout_below="@id/header">
+            android:layout_below="@id/fuzzy_header">
 
-            <!-- Patient Name -->
             <TextView
-                android:id="@+id/patient_name"
+                android:id="@+id/fuzzy_patient_name"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_alignParentTop="true"
@@ -61,27 +61,25 @@
                 android:textSize="18sp"
                 android:textColor="#FFFFFF" />
 
-            <!-- Image Container -->
+            <!-- Fuzzy Image Container -->
             <RelativeLayout
-                android:id="@+id/image_slider"
+                android:id="@+id/fuzzy_image_slider"
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
-                android:layout_below="@id/patient_name"
-                android:layout_above="@id/alpha_cut_container"
+                android:layout_below="@id/fuzzy_patient_name"
+                android:layout_above="@id/fuzzy_alpha_cut_container"
                 android:layout_marginTop="24dp"
                 android:layout_marginBottom="24dp"
                 android:layout_marginHorizontal="16dp">
 
-                <!-- Main Container Background -->
                 <View
-                    android:id="@+id/rectangle_3"
+                    android:id="@+id/fuzzy_rectangle_bg"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:background="@drawable/image_container_background"/>
 
-                <!-- Image Count -->
                 <TextView
-                    android:id="@+id/image_count"
+                    android:id="@+id/fuzzy_image_count"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="1/1"
@@ -90,28 +88,26 @@
                     android:layout_centerHorizontal="true"
                     android:layout_marginTop="12dp"/>
 
-                <!-- Image View -->
                 <ImageView
-                    android:id="@+id/mri_image"
+                    android:id="@+id/fuzzy_mri_image"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    android:layout_below="@id/image_count"
-                    android:layout_above="@id/navigation_area"
+                    android:layout_below="@id/fuzzy_image_count"
+                    android:layout_above="@id/fuzzy_navigation_area"
                     android:layout_marginHorizontal="16dp"
                     android:layout_marginVertical="12dp"
                     android:scaleType="fitCenter"
                     android:adjustViewBounds="true"/>
 
-                <!-- Navigation Area Container -->
                 <RelativeLayout
-                    android:id="@+id/navigation_area"
+                    android:id="@+id/fuzzy_navigation_area"
                     android:layout_width="match_parent"
                     android:layout_height="48dp"
                     android:layout_alignParentBottom="true"
                     android:layout_marginBottom="8dp">
 
                     <ImageButton
-                        android:id="@+id/prev_image"
+                        android:id="@+id/fuzzy_prev_image"
                         android:layout_width="48dp"
                         android:layout_height="48dp"
                         android:layout_alignParentStart="true"
@@ -121,7 +117,7 @@
                         app:tint="#000000" />
 
                     <ImageButton
-                        android:id="@+id/next_image"
+                        android:id="@+id/fuzzy_next_image"
                         android:layout_width="48dp"
                         android:layout_height="48dp"
                         android:layout_alignParentEnd="true"
@@ -132,12 +128,12 @@
                 </RelativeLayout>
             </RelativeLayout>
 
-            <!-- Alpha Cut Section -->
+            <!-- Fuzzy Alpha Cut Section -->
             <LinearLayout
-                android:id="@+id/alpha_cut_container"
+                android:id="@+id/fuzzy_alpha_cut_container"
                 android:layout_width="match_parent"
                 android:layout_height="48dp"
-                android:layout_above="@id/button_group"
+                android:layout_above="@id/fuzzy_button_group"
                 android:layout_marginBottom="24dp"
                 android:layout_marginHorizontal="16dp"
                 android:background="@drawable/alpha_cut_container_background"
@@ -157,7 +153,7 @@
                     android:background="@drawable/alpha_cut_button_background"/>
 
                 <SeekBar
-                    android:id="@+id/alpha_cut_slider"
+                    android:id="@+id/fuzzy_alpha_cut_slider"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
@@ -170,7 +166,7 @@
                     android:progressBackgroundTint="#80FFFFFF"/>
 
                 <TextView
-                    android:id="@+id/alpha_cut_value"
+                    android:id="@+id/fuzzy_alpha_cut_value"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:textColor="#FFFFFF"
@@ -180,9 +176,9 @@
                     android:layout_marginEnd="16dp"/>
             </LinearLayout>
 
-            <!-- ▼▼▼ Button Group Horizontal ▼▼▼ -->
+            <!-- Fuzzy Button Group -->
             <LinearLayout
-                android:id="@+id/button_group"
+                android:id="@+id/fuzzy_button_group"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_alignParentBottom="true"
@@ -190,7 +186,6 @@
                 android:layout_marginBottom="32dp"
                 android:orientation="horizontal">
 
-                <!-- Left Side: Predict + Customize -->
                 <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -198,16 +193,17 @@
                     android:layout_marginEnd="12dp">
 
                     <Button
-                        android:id="@+id/calculate_button"
+                        android:id="@+id/fuzzy_calculate_button"
                         android:layout_width="220dp"
                         android:layout_height="48dp"
-                        android:text="Calculate Fuzzy"
+                        android:text="Calculate Volume"
                         android:textColor="#000000"
                         android:textStyle="bold"
                         android:background="@drawable/button_background"
                         android:layout_marginBottom="8dp" />
+
                     <Button
-                        android:id="@+id/calculate_volume_button"
+                        android:id="@+id/fuzzy_calculate_volume_button"
                         android:layout_width="220dp"
                         android:layout_height="48dp"
                         android:text="Calculate Volume"
@@ -216,12 +212,10 @@
                         android:background="@drawable/button_background"
                         android:layout_marginStart="12dp"
                         android:visibility="gone"/>
-
                 </LinearLayout>
 
-                <!-- Right Side: Confirm ROI -->
                 <Button
-                    android:id="@+id/confirm_roi_button"
+                    android:id="@+id/fuzzy_confirm_roi_button"
                     android:layout_width="100dp"
                     android:layout_height="match_parent"
                     android:text=""
@@ -231,21 +225,163 @@
                     android:visibility="gone" />
             </LinearLayout>
         </RelativeLayout>
+    </RelativeLayout>
 
-        <!-- Loading Overlay -->
+    <!-- Results Screen Layout -->
+    <RelativeLayout
+        android:id="@+id/results_layout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#071E22"
+        android:visibility="gone">
+
+        <!-- Results Header -->
         <RelativeLayout
-            android:id="@+id/loading_overlay"
+            android:id="@+id/results_header"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:visibility="gone"
-            android:background="#BF071E22">
+            android:layout_height="56dp"
+            android:background="#1E2324"
+            android:elevation="4dp">
 
-            <ProgressBar
-                android:id="@+id/loading_progress"
+            <ImageButton
+                android:id="@+id/results_back_button"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:padding="12dp"
+                android:layout_centerVertical="true"
+                android:layout_marginStart="16dp"
+                android:layout_marginTop="4dp"
+                android:background="@android:color/transparent"
+                app:srcCompat="@drawable/ic_arrow_back"
+                android:contentDescription="Back"
+                app:tint="#FFFFFF" />
+
+            <TextView
+                android:id="@+id/results_title"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_centerInParent="true"
-                android:indeterminateTint="#FFFFFF"/>
+                android:text="Tumor Track"
+                android:textSize="20sp"
+                android:textColor="#FFFFFF" />
         </RelativeLayout>
+
+        <!-- Results Content -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_centerInParent="true"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:layout_below="@id/results_header">
+
+            <TextView
+                android:id="@+id/results_patient_name"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="Results"
+                android:textSize="18sp"
+                android:textColor="#FFFFFF" />
+
+            <TextView
+                android:id="@+id/results_tumor_volume"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="Tumor Volume: 140 mm³"
+                android:textColor="#FFFFFF"
+                android:textSize="18sp"/>
+
+            <!-- Results Image Container -->
+            <RelativeLayout
+                android:id="@+id/results_image_container"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:layout_marginHorizontal="16dp"
+                android:layout_marginBottom="16dp">
+
+                <View
+                    android:id="@+id/results_rectangle_bg"
+                    android:layout_width="match_parent"
+                    android:layout_height="500dp"
+                    android:background="@drawable/image_container_background"/>
+
+                <TextView
+                    android:id="@+id/results_image_count"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="0/0"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    android:textColor="#000000"
+                    android:layout_centerHorizontal="true"
+                    android:layout_marginTop="12dp"/>
+
+                <RelativeLayout
+                    android:id="@+id/results_navigation_area"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_alignBottom="@id/results_rectangle_bg"
+                    android:layout_marginBottom="8dp">
+
+                    <ImageButton
+                        android:id="@+id/results_prev_image"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:layout_alignParentStart="true"
+                        android:layout_marginStart="16dp"
+                        android:background="@android:color/transparent"
+                        app:srcCompat="@drawable/ic_left_arrow_vector"
+                        app:tint="#000000" />
+
+                    <ImageButton
+                        android:id="@+id/results_next_image"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:layout_alignParentEnd="true"
+                        android:layout_marginEnd="16dp"
+                        android:background="@android:color/transparent"
+                        app:srcCompat="@drawable/ic_right_arrow_vector"
+                        app:tint="#000000" />
+                </RelativeLayout>
+
+                <ImageView
+                    android:id="@+id/results_mri_image"
+                    android:layout_width="match_parent"
+                    android:layout_height="400dp"
+                    android:layout_below="@id/results_image_count"
+                    android:layout_above="@id/results_navigation_area"
+                    android:layout_marginHorizontal="16dp"
+                    android:layout_marginTop="12dp"
+                    android:layout_marginBottom="8dp"
+                    android:scaleType="fitCenter"
+                    android:adjustViewBounds="true"/>
+            </RelativeLayout>
+
+            <Button
+                android:id="@+id/results_recalculate_button"
+                android:layout_width="220dp"
+                android:layout_height="40dp"
+                android:layout_marginTop="16dp"
+                android:background="@drawable/button_background"
+                android:text="Calculate Again"
+                android:textColor="#000000" />
+        </LinearLayout>
+    </RelativeLayout>
+
+    <!-- Shared Loading Overlay -->
+    <RelativeLayout
+        android:id="@+id/loading_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone"
+        android:background="#BF071E22">
+        <ProgressBar
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerInParent="true"
+            android:indeterminateTint="#FFFFFF"/>
     </RelativeLayout>
 </FrameLayout>

@@ -49,6 +49,8 @@ class SeedScreen : AppCompatActivity() {
     private lateinit var customizeButton: Button
     private lateinit var mriSequence: MRISequence
     private var selectedMode: String = "Parallel"
+    private var roiTimeTaken: Long = 0
+
 
     private val roiMap: MutableMap<Int, FloatArray> = mutableMapOf()
     private val seedMap = mutableMapOf<Int, FloatArray>()
@@ -69,6 +71,8 @@ class SeedScreen : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.shared_roi_seed_screen)
+        roiTimeTaken = intent.getLongExtra("roi_time_taken", 0)
+
 
         // --- Receive the roi_map from intent, if provided ---
         @Suppress("UNCHECKED_CAST")
@@ -215,11 +219,16 @@ class SeedScreen : AppCompatActivity() {
     private fun setupConfirmButton() {
         confirmButton.setOnClickListener {
             val roiHashMap = HashMap<Int, FloatArray>(roiMap)
-            val intent = Intent(this, FuzzyScreen::class.java)
             val seedHashMap = HashMap<Int, FloatArray>(seedMap)
-            intent.putExtra("seed_map", seedHashMap)
-            intent.putExtra("roi_map", roiHashMap)
-            intent.putExtra("shouldCleanup", false)
+            val seedTimeTaken = patientName.text.toString().replace("Time Taken: ", "").replace(" ms", "").toLong()
+
+            val intent = Intent(this, FuzzyAndResultScreen::class.java).apply {
+                putExtra("seed_map", seedHashMap)
+                putExtra("roi_map", roiHashMap)
+                putExtra("roi_time_taken", roiTimeTaken)
+                putExtra("seed_time_taken", seedTimeTaken)
+                putExtra("shouldCleanup", false)
+            }
             startActivity(intent)
         }
     }
