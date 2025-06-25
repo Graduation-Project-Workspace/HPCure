@@ -1,8 +1,7 @@
 package com.example.network.worker
 
 import androidx.compose.runtime.snapshots.SnapshotStateList
-import com.example.domain.interfaces.IComputationStrategy
-import com.example.network.computation.*
+import com.example.domain.interfaces.network.IComputationStrategy
 import com.example.protos.*
 import io.grpc.ManagedChannel
 import io.grpc.stub.StreamObserver

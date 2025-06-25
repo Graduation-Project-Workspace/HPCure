@@ -5,7 +5,7 @@ import android.content.res.AssetManager
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.util.Log
-import com.example.domain.interfaces.IRoiPredictor
+import com.example.domain.interfaces.tumor.IRoiPredictor
 import com.example.demoapp.Utils.GpuDelegateHelper
 import org.tensorflow.lite.Interpreter
 import java.nio.ByteBuffer

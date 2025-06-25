@@ -17,7 +17,6 @@ import androidx.compose.ui.unit.dp
 import com.example.network.ui.MainViewModel
 import com.example.network.util.loadFriendlyName
 import kotlinx.coroutines.launch
-import com.example.network.ui.*
 
 @Composable
 fun NetworkMonitorDrawer(
@@ -26,7 +25,6 @@ fun NetworkMonitorDrawer(
     modifier: Modifier = Modifier
 ) {
     val scope = rememberCoroutineScope()
-    val isComputing by viewModel.isComputing.collectAsState()
     val ipAddress = viewModel.getLocalIpAddress()
 
     val deviceLogs by viewModel.deviceLogFeed.collectAsState()

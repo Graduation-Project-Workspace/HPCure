@@ -2,11 +2,11 @@ package com.example.demoapp.Core
 import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
-import com.example.domain.usecase.LogRepository
-import com.example.domain.interfaces.IFuzzySystem
-import com.example.domain.interfaces.INetworkService
-import com.example.domain.interfaces.IRoiPredictor
-import com.example.domain.interfaces.ISeedPredictor
+import com.example.domain.model.LogRepository
+import com.example.domain.interfaces.tumor.IFuzzySystem
+import com.example.domain.interfaces.network.INetworkService
+import com.example.domain.interfaces.tumor.IRoiPredictor
+import com.example.domain.interfaces.tumor.ISeedPredictor
 import com.example.domain.model.CancerVolume
 import com.example.domain.model.MRISequence
 import com.example.domain.model.ROI
@@ -17,7 +17,7 @@ class VolumeEstimator(
     private val fuzzySystem: IFuzzySystem,
     private val seedPredictor: ISeedPredictor,
     private val roiPredictor: IRoiPredictor,
-    private val network: INetworkService
+    private val network: INetworkService  // added for grpc
 ) {
     private val coordinatorStrategy = VolumeEstimateCoordinatorStrategy(network)
 

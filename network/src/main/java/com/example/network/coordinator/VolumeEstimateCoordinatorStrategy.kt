@@ -1,10 +1,10 @@
 package com.example.network.coordinator
 
-import com.example.domain.interfaces.ICoordinatorStrategy
-import com.example.domain.interfaces.WorkerResult
+import com.example.domain.interfaces.network.ICoordinatorStrategy
+import com.example.domain.interfaces.network.WorkerResult
 import com.example.domain.model.MRISequence
 import com.example.domain.model.ROI
-import com.example.domain.interfaces.INetworkService
+import com.example.domain.interfaces.network.INetworkService
 import com.example.protos.*
 import kotlin.math.ceil
 import java.io.ByteArrayOutputStream
@@ -186,7 +186,8 @@ class VolumeEstimateCoordinatorStrategy(
                                     response = response,
                                     assignedRange = range.toList(),
                                     computationTime = endTime - startTime
-                                ))
+                                )
+                                )
                             }
                             logs.add("Worker ${worker.second} successfully processed slices ${range.first} to ${range.last} in ${endTime - startTime}ms")
                             // Post task completed event

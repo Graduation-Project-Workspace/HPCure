@@ -8,7 +8,6 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.Settings
-import android.util.Log
 import android.view.View
 import android.widget.*
 import androidx.activity.result.contract.ActivityResultContracts
@@ -25,16 +24,14 @@ import com.example.demoapp.Core.VolumeEstimator
 import com.example.domain.model.CancerVolume
 import com.example.domain.model.MRISequence
 import com.example.demoapp.R
-import com.example.domain.usecase.LogRepository
 import com.example.demoapp.Utils.FileManager
-import com.example.network.network.GrpcNetwork
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @RequiresApi(Build.VERSION_CODES.N)
-class HomeScreenUpload : BaseActivity() {
+class CalculateScreen : BaseActivity() {
     private lateinit var mriImage: ImageView
     private lateinit var alphaCutValue: TextView
     private lateinit var alphaCutSlider: SeekBar

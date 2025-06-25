@@ -3,13 +3,11 @@ package com.example.network.ui
 import android.content.Context
 import androidx.lifecycle.*
 import kotlinx.coroutines.flow.*
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
-import com.example.domain.interfaces.IComputationStrategy
-import com.example.domain.interfaces.IRoiPredictor
-import com.example.domain.interfaces.ISeedPredictor
-import com.example.domain.usecase.LogRepository
-import com.example.network.computation.*
+import com.example.domain.interfaces.network.IComputationStrategy
+import com.example.domain.interfaces.tumor.IRoiPredictor
+import com.example.domain.interfaces.tumor.ISeedPredictor
+import com.example.domain.model.LogRepository
 import com.example.network.network.*
 import com.example.network.util.*
 import kotlinx.coroutines.launch

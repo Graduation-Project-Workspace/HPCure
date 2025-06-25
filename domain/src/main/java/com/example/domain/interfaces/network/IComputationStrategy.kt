@@ -1,4 +1,4 @@
-package com.example.domain.interfaces
+package com.example.domain.interfaces.network
 
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import com.example.protos.AssignTaskRequest
@@ -12,4 +12,4 @@ interface IComputationStrategy {
     fun logInput(input1: Any, input2: Any, logs: SnapshotStateList<String>)
     fun logOutput(response: AssignTaskResponse, logs: SnapshotStateList<String>)
     fun getWorkerName(): String
-} 
+}

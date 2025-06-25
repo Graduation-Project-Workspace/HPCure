@@ -1,4 +1,4 @@
-package com.example.domain.interfaces
+package com.example.domain.interfaces.tumor
 
 import com.example.domain.model.CancerVolume
 import com.example.domain.model.MRISequence

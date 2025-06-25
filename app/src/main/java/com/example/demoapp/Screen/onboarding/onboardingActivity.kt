@@ -1,4 +1,4 @@
-package com.example.demoapp.Screen
+package com.example.demoapp.Screen.onboarding
 
 import android.content.Intent
 import android.os.Bundle
@@ -7,6 +7,7 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.viewpager2.widget.ViewPager2
 import com.example.demoapp.R
+import com.example.demoapp.Screen.HomeScreen
 
 class OnboardingActivity : AppCompatActivity() {
 

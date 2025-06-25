@@ -1,10 +1,10 @@
 package com.example.network.coordinator
 
-import com.example.domain.interfaces.ICoordinatorStrategy
-import com.example.domain.interfaces.INetworkService
-import com.example.domain.interfaces.IRoiPredictor
-import com.example.domain.interfaces.ISeedPredictor
-import com.example.domain.interfaces.WorkerResult
+import com.example.domain.interfaces.network.ICoordinatorStrategy
+import com.example.domain.interfaces.network.INetworkService
+import com.example.domain.interfaces.tumor.IRoiPredictor
+import com.example.domain.interfaces.tumor.ISeedPredictor
+import com.example.domain.interfaces.network.WorkerResult
 import com.example.network.computation.VolumeEstimateComputationStrategy
 import com.example.network.ui.*
 import com.example.network.util.*
@@ -183,7 +183,8 @@ class Coordinator(
                     response = result,
                     assignedRange = portions,
                     computationTime = computationTime
-                ))
+                )
+                )
                 updateWorkerMetrics(worker.first, true, computationTime)
                 logs.add("Coordinator: Worker ${worker.second} successfully computed portions $portions")
                 
@@ -370,7 +371,8 @@ class Coordinator(
                                 response = result,
                                 assignedRange = portions,
                                 computationTime = endTime - startTime
-                            ))
+                            )
+                            )
                             updateWorkerMetrics(originalWorker.first, true, endTime - startTime)
                             logs.add("Worker ${originalWorker.second} is back online and recomputed its original portions [${portions.joinToString(", ")}]")
                             
@@ -415,7 +417,8 @@ class Coordinator(
                             response = result,
                             assignedRange = portions,
                             computationTime = endTime - startTime
-                        ))
+                        )
+                        )
                         updateWorkerMetrics(targetWorker.first, true, endTime - startTime)
                         logs.add("Successfully redistributed portions [${portions.joinToString(", ")}] to ${targetWorker.second}")
                         

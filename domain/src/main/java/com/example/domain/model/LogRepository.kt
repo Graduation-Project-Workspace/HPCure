@@ -1,4 +1,4 @@
-package com.example.domain.usecase
+package com.example.domain.model
 
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.snapshots.SnapshotStateList

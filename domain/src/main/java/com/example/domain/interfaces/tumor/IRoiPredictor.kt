@@ -1,4 +1,4 @@
-package com.example.domain.interfaces
+package com.example.domain.interfaces.tumor
 
 import android.graphics.Bitmap
 

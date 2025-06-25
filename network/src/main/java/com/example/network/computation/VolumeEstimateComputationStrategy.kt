@@ -1,9 +1,9 @@
 package com.example.network.computation
 
 import androidx.compose.runtime.snapshots.SnapshotStateList
-import com.example.domain.interfaces.IComputationStrategy
-import com.example.domain.interfaces.IRoiPredictor
-import com.example.domain.interfaces.ISeedPredictor
+import com.example.domain.interfaces.network.IComputationStrategy
+import com.example.domain.interfaces.tumor.IRoiPredictor
+import com.example.domain.interfaces.tumor.ISeedPredictor
 import com.example.domain.model.ROI
 import com.example.protos.AssignTaskRequest
 import com.example.protos.AssignTaskResponse

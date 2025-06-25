@@ -22,7 +22,7 @@
         android:requestLegacyExternalStorage="true"
         tools:targetApi="31">
 
-        <activity android:name=".Screen.HomeScreenUpload"
+        <activity android:name=".Screen.CalculateScreen"
             android:exported="true"
             android:theme="@style/Theme.AppCompat.Light.NoActionBar"
             />
@@ -61,7 +61,7 @@
             android:exported="true"
             android:label="@string/app_name"
             android:theme="@style/Theme.DemoApp" />
-        <activity android:name=".Screen.OnboardingActivity"
+        <activity android:name=".Screen.onboarding.OnboardingActivity"
             android:exported="true"
             android:theme="@style/Theme.AppCompat.Light.NoActionBar"/>
 

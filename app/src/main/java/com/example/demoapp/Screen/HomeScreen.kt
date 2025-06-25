@@ -23,10 +23,9 @@ import kotlinx.coroutines.withContext
 
 class HomeScreen : BaseActivity() {
     private val PICK_DIRECTORY_REQUEST_CODE = 1
-    private val PERMISSION_REQUEST_CODE = 123
-
     private var uploadedImage: ImageView? = null
     private lateinit var loadingOverlay: FrameLayout
+    private val PERMISSION_REQUEST_CODE = 123
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -68,14 +67,6 @@ class HomeScreen : BaseActivity() {
         }
     }
 
-    private fun showLoading() {
-        loadingOverlay.visibility = View.VISIBLE
-    }
-
-    private fun hideLoading() {
-        loadingOverlay.visibility = View.GONE
-    }
-
     private fun handleDicomDirectory(uri: Uri) {
         showLoading()
         CoroutineScope(Dispatchers.Main).launch {
@@ -102,7 +93,7 @@ class HomeScreen : BaseActivity() {
                     Log.d("UploadScreen", "Moving to RoiScreen with ${FileManager.getTotalFiles()} files")
 
                     // Directly go to the next screen
-                    val intent = Intent(this@HomeScreen, HomeScreenUpload::class.java)
+                    val intent = Intent(this@HomeScreen, CalculateScreen::class.java)
                     startActivity(intent)
 
                     // Don't finish the activity yet - let them go back if needed
@@ -130,7 +121,7 @@ class HomeScreen : BaseActivity() {
                     grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
                     openDirectoryPicker()
                 } else {
-                    Toast.makeText(this, "Storage permissions are required", Toast.LENGTH_SHORT).show()
+                    showToast("Storage permissions are required")
                 }
             }
         }
@@ -141,8 +132,19 @@ class HomeScreen : BaseActivity() {
         FileManager.cleanup()
     }
 
+    private fun showLoading() {
+        loadingOverlay.visibility = View.VISIBLE
+    }
+
+    private fun hideLoading() {
+        loadingOverlay.visibility = View.GONE
+    }
+
     private fun showErrorDialog(message: String) {
         ErrorDialog(this).show(message)
     }
 
+    private fun showToast(message: String) {
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+    }
 }

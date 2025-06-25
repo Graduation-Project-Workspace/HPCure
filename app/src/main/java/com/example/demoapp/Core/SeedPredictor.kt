@@ -4,7 +4,7 @@ import android.content.Context
 import android.content.res.AssetManager
 import android.graphics.Bitmap
 import android.util.Log
-import com.example.domain.interfaces.ISeedPredictor
+import com.example.domain.interfaces.tumor.ISeedPredictor
 import com.example.demoapp.Utils.GpuDelegateHelper
 import org.tensorflow.lite.Interpreter
 import java.nio.ByteBuffer

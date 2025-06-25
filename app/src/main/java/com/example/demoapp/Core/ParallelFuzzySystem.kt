@@ -4,7 +4,7 @@ import android.graphics.Bitmap
 import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
-import com.example.domain.interfaces.IFuzzySystem
+import com.example.domain.interfaces.tumor.IFuzzySystem
 import com.example.domain.model.CancerVolume
 import com.example.domain.model.MRISequence
 import com.example.domain.model.ROI

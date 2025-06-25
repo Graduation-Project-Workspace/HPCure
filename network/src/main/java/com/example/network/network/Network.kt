@@ -5,9 +5,9 @@ import android.content.Context
 import android.provider.Settings
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
-import com.example.domain.interfaces.IComputationStrategy
-import com.example.domain.interfaces.IRoiPredictor
-import com.example.domain.interfaces.ISeedPredictor
+import com.example.domain.interfaces.network.IComputationStrategy
+import com.example.domain.interfaces.tumor.IRoiPredictor
+import com.example.domain.interfaces.tumor.ISeedPredictor
 import com.example.network.computation.*
 import com.example.network.coordinator.*
 import com.example.network.worker.*
@@ -25,7 +25,7 @@ import javax.jmdns.JmDNS
 import javax.jmdns.ServiceEvent
 import javax.jmdns.ServiceInfo
 import javax.jmdns.ServiceListener
-import com.example.domain.interfaces.INetworkService
+import com.example.domain.interfaces.network.INetworkService
 import io.grpc.StatusRuntimeException
 
 const val SERVICE_TYPE = "_task._tcp.local."
