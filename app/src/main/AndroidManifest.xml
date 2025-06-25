@@ -37,6 +37,17 @@
             android:theme="@style/Theme.AppCompat.Light.NoActionBar"
             />
 
+        <activity android:name=".Screen.FuzzyScreen"
+            android:exported="true"
+            android:theme="@style/Theme.AppCompat.Light.NoActionBar"
+            />
+
+        <activity android:name=".Screen.ResultsScreen"
+            android:exported="true"
+            android:theme="@style/Theme.AppCompat.Light.NoActionBar"
+            android:hardwareAccelerated="true"
+            />
+
         <!-- SplashActivity should be the ONLY Launcher Activity -->
         <activity
             android:name=".Screen.SplashActivity"
@@ -48,11 +59,7 @@
             </intent-filter>
         </activity>
 
-        <activity android:name=".HomeScreenResults"
-            android:exported="true"
-            android:theme="@style/Theme.AppCompat.Light.NoActionBar"
-            android:hardwareAccelerated="true"
-            />
+
         <activity android:name=".Screen.ModelScreen"
             android:exported="true"
             android:theme="@style/Theme.AppCompat.Light.NoActionBar"

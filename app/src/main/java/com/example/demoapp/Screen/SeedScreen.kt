@@ -140,6 +140,7 @@ class SeedScreen : AppCompatActivity() {
         setupOptionsPopup()
         setupBackButton()
         setupPopupCloseOnBackground()
+        setupConfirmButton()
     }
 
     private fun initializeViews() {
@@ -149,6 +150,7 @@ class SeedScreen : AppCompatActivity() {
         nextImage = findViewById(R.id.next_image)
         loadingOverlay = findViewById(R.id.loading_overlay)
         predictButton = findViewById(R.id.predict_button)
+        predictButton.text = "Predict Seed"
         optionsButton = findViewById(R.id.options_button)
         backButton = findViewById(R.id.back_button)
         mainContent = findViewById(R.id.main_content)
@@ -204,7 +206,21 @@ class SeedScreen : AppCompatActivity() {
                 }
                 confirmButton.visibility = View.VISIBLE
                 customizeButton.visibility = View.VISIBLE
+                predictButton.text = "Re-Predict Seed"
+
             }
+        }
+    }
+
+    private fun setupConfirmButton() {
+        confirmButton.setOnClickListener {
+            val roiHashMap = HashMap<Int, FloatArray>(roiMap)
+            val intent = Intent(this, FuzzyScreen::class.java)
+            val seedHashMap = HashMap<Int, FloatArray>(seedMap)
+            intent.putExtra("seed_map", seedHashMap)
+            intent.putExtra("roi_map", roiHashMap)
+            intent.putExtra("shouldCleanup", false)
+            startActivity(intent)
         }
     }
 
@@ -430,14 +446,17 @@ class SeedScreen : AppCompatActivity() {
     private fun setupBackButton() {
         backButton.setOnClickListener {
             val intent = Intent(this, RoiScreen::class.java)
+            intent.putExtra("shouldCleanup", false)
             intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             startActivity(intent)
             finish()
         }
     }
 
+    /*
     override fun onDestroy() {
         super.onDestroy()
         FileManager.cleanupTemporary()
     }
+     */
 }

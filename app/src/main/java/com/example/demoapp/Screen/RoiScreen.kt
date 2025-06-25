@@ -143,6 +143,7 @@ class RoiScreen : AppCompatActivity() {
         nextImage = findViewById(R.id.next_image)
         loadingOverlay = findViewById(R.id.loading_overlay)
         predictButton = findViewById(R.id.predict_button)
+        predictButton.text = "Predict ROI"
         optionsButton = findViewById(R.id.options_button)
         backButton = findViewById(R.id.back_button)
         mainContent = findViewById(R.id.main_content)
@@ -229,6 +230,7 @@ class RoiScreen : AppCompatActivity() {
                 }
                 confirmButton.visibility = View.VISIBLE
                 customizeButton.visibility = View.VISIBLE
+                predictButton.text = "Re-Predict ROI"
 
             }
         }
@@ -239,6 +241,7 @@ class RoiScreen : AppCompatActivity() {
             val roiHashMap = HashMap<Int, FloatArray>(roiMap)
             val intent = Intent(this, SeedScreen::class.java)
             intent.putExtra("roi_map", roiHashMap)
+            intent.putExtra("shouldCleanup", false)
             startActivity(intent)
         }
     }
@@ -340,8 +343,12 @@ class RoiScreen : AppCompatActivity() {
         nextImage.visibility = if (currentIndex < totalFiles) ImageButton.VISIBLE else ImageButton.INVISIBLE
     }
 
+
     override fun onDestroy() {
         super.onDestroy()
-        FileManager.cleanupTemporary()
+        val shouldCleanup = intent.getBooleanExtra("shouldCleanup", true)
+        if (shouldCleanup) {
+            FileManager.cleanupTemporary()
+        }
     }
 }
