@@ -21,6 +21,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.example.demoapp.Core.SeedPredictor
 import com.example.demoapp.Model.MRISequence
+import com.example.demoapp.Model.ROI
 import com.example.demoapp.R
 import com.example.demoapp.Utils.FileManager
 import kotlinx.coroutines.CoroutineScope
@@ -52,7 +53,7 @@ class SeedScreen : AppCompatActivity() {
     private var roiTimeTaken: Long = 0
 
 
-    private val roiMap: MutableMap<Int, FloatArray> = mutableMapOf()
+    private val roiMap: MutableMap<Int, ROI> = mutableMapOf()
     private val seedMap = mutableMapOf<Int, FloatArray>()
     private val pixelRoiMap = mutableMapOf<Int, IntArray>()
     private val context = this
@@ -77,7 +78,7 @@ class SeedScreen : AppCompatActivity() {
         // --- Receive the roi_map from intent, if provided ---
         @Suppress("UNCHECKED_CAST")
         intent.getSerializableExtra("roi_map")?.let { extra ->
-            val incomingMap = extra as? HashMap<Int, FloatArray>
+            val incomingMap = extra as? HashMap<Int, ROI>
             if (incomingMap != null) {
                 roiMap.clear()
                 roiMap.putAll(incomingMap)
@@ -189,11 +190,7 @@ class SeedScreen : AppCompatActivity() {
                 bitmaps.mapIndexed { index, bitmap ->
                     val roi = roiMap[index]
                     if (roi != null) {
-                        val xMin = (roi[0] * bitmap.width).toInt()
-                        val yMin = (roi[1] * bitmap.height).toInt()
-                        val xMax = (roi[2] * bitmap.width).toInt()
-                        val yMax = (roi[3] * bitmap.height).toInt()
-                        val roiInt = intArrayOf(xMin, yMin, xMax, yMax)
+                        val roiInt = intArrayOf(roi.xMin, roi.yMin, roi.xMax, roi.yMax)
                         val seed = seedPredictor.predictSeed(bitmap, roiInt)[0]
                         seedMap[index] = seed
                         pixelRoiMap[index] = roiInt
@@ -218,7 +215,7 @@ class SeedScreen : AppCompatActivity() {
 
     private fun setupConfirmButton() {
         confirmButton.setOnClickListener {
-            val roiHashMap = HashMap<Int, FloatArray>(roiMap)
+            val roiHashMap = HashMap<Int, ROI>(roiMap)
             val seedHashMap = HashMap<Int, FloatArray>(seedMap)
             val seedTimeTaken = patientName.text.toString().replace("Time Taken: ", "").replace(" ms", "").toLong()
 
@@ -312,21 +309,12 @@ class SeedScreen : AppCompatActivity() {
     }
 
 
-    private fun drawNormalizedRoiOnly(bitmap: Bitmap, roi: FloatArray): Bitmap {
-        val (xCenter, yCenter, width, height) = roi
+    private fun drawNormalizedRoiOnly(bitmap: Bitmap, roi: ROI): Bitmap {
 
-        val imgW = bitmap.width
-        val imgH = bitmap.height
-
-        val boxX = xCenter * imgW
-        val boxY = yCenter * imgH
-        val boxW = width * imgW
-        val boxH = height * imgH
-
-        val x1 = (boxX - boxW / 2).coerceAtLeast(0f)
-        val y1 = (boxY - boxH / 2).coerceAtLeast(0f)
-        val x2 = (boxX + boxW / 2).coerceAtMost(imgW.toFloat())
-        val y2 = (boxY + boxH / 2).coerceAtMost(imgH.toFloat())
+        val x1 = roi.xMin.toFloat()
+        val y1 = roi.yMin.toFloat()
+        val x2 = roi.xMax.toFloat()
+        val y2 = roi.yMax.toFloat()
 
         val mutableBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true)
         val canvas = Canvas(mutableBitmap)
@@ -341,23 +329,14 @@ class SeedScreen : AppCompatActivity() {
 
     private fun drawSeedPointInsideNormalizedRoi(
         bitmap: Bitmap,
-        roi: FloatArray,
+        roi: ROI,
         seed: FloatArray
     ): Bitmap {
-        val (xCenter, yCenter, width, height) = roi
 
-        val imgW = bitmap.width
-        val imgH = bitmap.height
-
-        val boxX = xCenter * imgW
-        val boxY = yCenter * imgH
-        val boxW = width * imgW
-        val boxH = height * imgH
-
-        val x1 = (boxX - boxW / 2).coerceAtLeast(0f)
-        val y1 = (boxY - boxH / 2).coerceAtLeast(0f)
-        val x2 = (boxX + boxW / 2).coerceAtMost(imgW.toFloat())
-        val y2 = (boxY + boxH / 2).coerceAtMost(imgH.toFloat())
+        val x1 = roi.xMin.toFloat()
+        val y1 = roi.yMin.toFloat()
+        val x2 = roi.xMax.toFloat()
+        val y2 = roi.yMax.toFloat()
 
         val mutableBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true)
         val canvas = Canvas(mutableBitmap)

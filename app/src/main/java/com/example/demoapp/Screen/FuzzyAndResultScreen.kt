@@ -65,7 +65,7 @@ class FuzzyAndResultScreen : AppCompatActivity() {
     private var seedTimeTaken: Long = 0
     private lateinit var cancerVolume: CancerVolume
     private lateinit var mriSequence: MRISequence
-    private val roiMap: MutableMap<Int, FloatArray> = mutableMapOf()
+    private val roiMap: MutableMap<Int, ROI> = mutableMapOf()
     private val seedMap: MutableMap<Int, FloatArray> = mutableMapOf()
     private val fuzzyHighlightMap: MutableMap<Int, Boolean> = mutableMapOf()
 
@@ -88,7 +88,7 @@ class FuzzyAndResultScreen : AppCompatActivity() {
 
         @Suppress("UNCHECKED_CAST")
         intent.getSerializableExtra("roi_map")?.let { extra ->
-            val incomingMap = extra as? HashMap<Int, FloatArray>
+            val incomingMap = extra as? HashMap<Int, ROI>
             if (incomingMap != null) {
                 roiMap.clear()
                 roiMap.putAll(incomingMap)
@@ -201,18 +201,7 @@ class FuzzyAndResultScreen : AppCompatActivity() {
                 val alphaCut = currentAlphaCutValue
                 val roiList = bitmaps.indices.map { idx ->
                     roiMap[idx]?.let { roiArr ->
-                        val imgW = bitmaps[idx].width
-                        val imgH = bitmaps[idx].height
-                        val boxX = roiArr[0] * imgW
-                        val boxY = roiArr[1] * imgH
-                        val boxW = roiArr[2] * imgW
-                        val boxH = roiArr[3] * imgH
-                        ROI(
-                            xMin = (boxX - boxW / 2).coerceAtLeast(0f).toInt(),
-                            yMin = (boxY - boxH / 2).coerceAtLeast(0f).toInt(),
-                            xMax = (boxX + boxW / 2).coerceAtMost(imgW.toFloat()).toInt(),
-                            yMax = (boxY + boxH / 2).coerceAtMost(imgH.toFloat()).toInt()
-                        )
+                        roiArr
                     } ?: ROI(0, 0, 0, 0)
                 }
 
@@ -412,21 +401,12 @@ class FuzzyAndResultScreen : AppCompatActivity() {
     }
 
 
-    private fun drawNormalizedRoiOnly(bitmap: Bitmap, roi: FloatArray): Bitmap {
-        val (xCenter, yCenter, width, height) = roi
+    private fun drawNormalizedRoiOnly(bitmap: Bitmap, roi: ROI): Bitmap {
 
-        val imgW = bitmap.width
-        val imgH = bitmap.height
-
-        val boxX = xCenter * imgW
-        val boxY = yCenter * imgH
-        val boxW = width * imgW
-        val boxH = height * imgH
-
-        val x1 = (boxX - boxW / 2).coerceAtLeast(0f)
-        val y1 = (boxY - boxH / 2).coerceAtLeast(0f)
-        val x2 = (boxX + boxW / 2).coerceAtMost(imgW.toFloat())
-        val y2 = (boxY + boxH / 2).coerceAtMost(imgH.toFloat())
+        val x1 = roi.xMin.toFloat()
+        val y1 = roi.yMin.toFloat()
+        val x2 = roi.xMax.toFloat()
+        val y2 = roi.yMax.toFloat()
 
         val mutableBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true)
         val canvas = Canvas(mutableBitmap)
@@ -439,21 +419,12 @@ class FuzzyAndResultScreen : AppCompatActivity() {
         return mutableBitmap
     }
 
-    private fun drawSeedPointInsideNormalizedRoi(bitmap: Bitmap, roi: FloatArray, seed: FloatArray): Bitmap {
-        val (xCenter, yCenter, width, height) = roi
+    private fun drawSeedPointInsideNormalizedRoi(bitmap: Bitmap, roi: ROI, seed: FloatArray): Bitmap {
 
-        val imgW = bitmap.width
-        val imgH = bitmap.height
-
-        val boxX = xCenter * imgW
-        val boxY = yCenter * imgH
-        val boxW = width * imgW
-        val boxH = height * imgH
-
-        val x1 = (boxX - boxW / 2).coerceAtLeast(0f)
-        val y1 = (boxY - boxH / 2).coerceAtLeast(0f)
-        val x2 = (boxX + boxW / 2).coerceAtMost(imgW.toFloat())
-        val y2 = (boxY + boxH / 2).coerceAtMost(imgH.toFloat())
+        val x1 = roi.xMin.toFloat()
+        val y1 = roi.yMin.toFloat()
+        val x2 = roi.xMax.toFloat()
+        val y2 = roi.yMax.toFloat()
 
         val mutableBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true)
         val canvas = Canvas(mutableBitmap)
