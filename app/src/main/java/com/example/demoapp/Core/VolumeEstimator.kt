@@ -7,7 +7,6 @@ import com.example.demoapp.Core.Interfaces.IRoiPredictor
 import com.example.demoapp.Core.Interfaces.ISeedPrecitor
 import com.example.demoapp.Model.CancerVolume
 import com.example.demoapp.Model.MRISequence
-import com.example.demoapp.Model.ROI
 
 @RequiresApi(Build.VERSION_CODES.N)
 class VolumeEstimator(private val fuzzySystem: IFuzzySystem,
@@ -16,35 +15,7 @@ class VolumeEstimator(private val fuzzySystem: IFuzzySystem,
 ) {
 
     fun estimateVolume(mriSeq : MRISequence, alphaCutValue : Float) : CancerVolume {
-        val roiList = mriSeq.images.map { bitmap ->
-            val roiArray = roiPredictor.predictRoi(bitmap)
-            val roi = roiArray[0]
-
-            val xCenter = roi[0]
-            val yCenter = roi[1]
-            val width = roi[2]
-            val height = roi[3]
-
-            val imgW = bitmap.width
-            val imgH = bitmap.height
-
-            val boxX = (xCenter * imgW).toInt()
-            val boxY = (yCenter * imgH).toInt()
-            val boxW = (width * imgW).toInt()
-            val boxH = (height * imgH).toInt()
-
-            val x1 = (boxX - boxW / 2).coerceAtLeast(0)
-            val y1 = (boxY - boxH / 2).coerceAtLeast(0)
-            val x2 = (boxX + boxW / 2).coerceAtMost(imgW - 1)
-            val y2 = (boxY + boxH / 2).coerceAtMost(imgH - 1)
-
-            ROI(
-                xMin = x1,
-                yMin = x2,
-                xMax = y1,
-                yMax = y2
-            )
-        }
+        val roiList = roiPredictor.predictRoi(mriSeq)
         val seedPoints = mutableListOf<Pair<Int, Int>>()
         for (i in mriSeq.images.indices) {
             val bitmap = mriSeq.images[i]

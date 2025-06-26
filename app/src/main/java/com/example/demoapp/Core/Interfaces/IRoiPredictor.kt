@@ -1,14 +1,15 @@
 package com.example.demoapp.Core.Interfaces
 import android.graphics.Bitmap
+import com.example.demoapp.Model.MRISequence
+import com.example.demoapp.Model.ROI
+import org.tensorflow.lite.Interpreter
 
 
 interface IRoiPredictor {
-    class DummyRoiPredictor : IRoiPredictor {
-        override fun predictRoi(sliceBitmap: Bitmap): Array<FloatArray> {
-            throw UnsupportedOperationException("ROI already provided, should not be called.")
-        }
-    }
     fun predictRoi(
         sliceBitmap: Bitmap,
-    ): Array<FloatArray>
+        tflite: Interpreter
+    ): ROI
+
+    fun predictRoi(mriSequence: MRISequence) : List<ROI>
 }
