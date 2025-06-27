@@ -5,12 +5,13 @@ import android.content.res.AssetManager
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.util.Log
+import androidx.core.graphics.scale
 import com.example.demoapp.Core.Interfaces.ISeedPrecitor
+import com.example.demoapp.Model.ROI
 import com.example.demoapp.Utils.GpuDelegateHelper
 import org.tensorflow.lite.Interpreter
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import androidx.core.graphics.scale
 
 class SeedPredictor : ISeedPrecitor {
     private lateinit var tflite: Interpreter
@@ -47,10 +48,19 @@ class SeedPredictor : ISeedPrecitor {
 
     override fun predictSeed(
         slice_bitmap: Bitmap,
-        roi: IntArray
+        roi: ROI
     ): Array<FloatArray> {
+        // Crop the bitmap to the ROI
+        val croppedBitmap = Bitmap.createBitmap(
+            slice_bitmap,
+            roi.xMin,
+            roi.yMin,
+            roi.xMax - roi.xMin,
+            roi.yMax - roi.yMin
+        )
+
         // Resize to model input size (512x512)
-        val resizedBitmap = slice_bitmap.scale(inputSize, inputSize)
+        val resizedBitmap = croppedBitmap.scale(inputSize, inputSize)
 
         // Convert bitmap to normalized float array with CHW format (3, 512, 512)
         val inputBuffer = convertBitmapToFloatBuffer(resizedBitmap)
@@ -60,21 +70,8 @@ class SeedPredictor : ISeedPrecitor {
 
         // Run inference
         tflite.run(inputBuffer, output)
-        // log the output order
-        Log.d("SeedPredictor", "Output shape: ${output[0].contentDeepToString()}")
-        Log.d("SeedPredictor", "Output length: ${output[0][0].size}")
-        Log.d("SeedPredictor", "Output first element: ${output[0][0][0]}")
-        Log.d("SeedPredictor", "Output last element: ${output[0][0][output[0][0].size - 1]}")
-        Log.d("SeedPredictor", "Output[0][7] (probabilities): ${output[0][7].contentToString()}")
-        Log.d("SeedPredictor", "Output[0][0] (x-coordinates): ${output[0][0].contentToString()}")
-        Log.d("SeedPredictor", "Output[0][1] (y-coordinates): ${output[0][1].contentToString()}")
-        Log.d("SeedPredictor", "Output[0][2] (z-coordinates): ${output[0][2].contentToString()}")
-        Log.d("SeedPredictor", "Output[0][3] (width): ${output[0][3].contentToString()}")
-        Log.d("SeedPredictor", "Output[0][4] (height): ${output[0][4].contentToString()}")
 
-        val xCoords = output[0][0]
-        val yCoords = output[0][1]
-        val probabilities = output[0][7] // Adjust this index if probability is in a different channel
+        val probabilities = output[0][4] // Adjust this index if probability is in a different channel
 
         // Find the index with maximum probability
         var maxProbIndex = 0
@@ -87,13 +84,20 @@ class SeedPredictor : ISeedPrecitor {
         }
 
         // Get the corresponding x,y coordinates
-        val seedX = xCoords[maxProbIndex]
-        val seedY = yCoords[maxProbIndex]
+        val seedX = output[0][5][maxProbIndex]
+        val seedY = output[0][6][maxProbIndex]
 
         Log.d("SeedPredictor", "Predicted seed point: ($seedX, $seedY) with probability $maxProb")
 
+        // Rescale coordinates to original image size
+        val normalizedX = seedX / inputSize
+        val normalizedY = seedY / inputSize
+        val rescaledSeedX = roi.xMin + (roi.xMax - roi.xMin) * normalizedX
+        val rescaledSeedY = roi.yMin + (roi.yMax - roi.yMin) * normalizedY
+        Log.d("SeedPredictor", "Rescaled seed point: ($rescaledSeedX, $rescaledSeedY)")
+
         // Return just the x,y coordinates
-        return arrayOf(floatArrayOf(seedX, seedY))
+        return arrayOf(floatArrayOf(rescaledSeedX, rescaledSeedY))
     }
 
     private fun convertBitmapToFloatBuffer(bitmap: Bitmap): ByteBuffer {

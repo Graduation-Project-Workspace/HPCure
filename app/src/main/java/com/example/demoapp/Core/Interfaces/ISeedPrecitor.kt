@@ -1,16 +1,12 @@
 package com.example.demoapp.Core.Interfaces
 
 import android.graphics.Bitmap
+import com.example.demoapp.Model.ROI
 
 interface ISeedPrecitor {
     // Dummy Seed Predictor
-    class DummySeedPredictor : ISeedPrecitor {
-        override fun predictSeed(slice_bitmap: Bitmap, roi: IntArray): Array<FloatArray> {
-            throw UnsupportedOperationException("Seed already provided, should not be called.")
-        }
-    }
     fun predictSeed(
         slice_bitmap: Bitmap,
-        roi: IntArray
+        roi: ROI
     ): Array<FloatArray>
 }

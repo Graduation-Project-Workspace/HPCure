@@ -25,7 +25,7 @@ class VolumeEstimator(private val fuzzySystem: IFuzzySystem,
             // Pass ROI as [x1, y1, x2, y2] — top-left and bottom-right
             val seedPoint = seedPredictor.predictSeed(
                 bitmap,
-                intArrayOf(roi.xMin, roi.yMin, roi.xMax, roi.yMax)
+                roi
             )
 
             // Scale the seed point from relative ROI [0-1] to full image coordinates

@@ -12,6 +12,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.Settings
+import android.util.Log
 import android.view.MotionEvent
 import android.view.View
 import android.widget.*
@@ -55,7 +56,6 @@ class SeedScreen : AppCompatActivity() {
 
     private val roiMap: MutableMap<Int, ROI> = mutableMapOf()
     private val seedMap = mutableMapOf<Int, FloatArray>()
-    private val pixelRoiMap = mutableMapOf<Int, IntArray>()
     private val context = this
 
     private val storagePermissionLauncher = registerForActivityResult(
@@ -190,10 +190,8 @@ class SeedScreen : AppCompatActivity() {
                 bitmaps.mapIndexed { index, bitmap ->
                     val roi = roiMap[index]
                     if (roi != null) {
-                        val roiInt = intArrayOf(roi.xMin, roi.yMin, roi.xMax, roi.yMax)
-                        val seed = seedPredictor.predictSeed(bitmap, roiInt)[0]
+                        val seed = seedPredictor.predictSeed(bitmap, roi)[0]
                         seedMap[index] = seed
-                        pixelRoiMap[index] = roiInt
                     }
                 }
 
@@ -228,42 +226,6 @@ class SeedScreen : AppCompatActivity() {
             }
             startActivity(intent)
         }
-    }
-
-    private fun drawSeedPointInsideRoi(
-        bitmap: Bitmap,
-        roiInt: IntArray,
-        seed: FloatArray
-    ): Bitmap {
-        val mutableBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true)
-        val canvas = Canvas(mutableBitmap)
-
-        // The coordinates of your ROI as pixels
-        val xMin = roiInt[0].toFloat()
-        val yMin = roiInt[1].toFloat()
-        val xMax = roiInt[2].toFloat()
-        val yMax = roiInt[3].toFloat()
-
-        // Draw ROI box
-        val roiPaint = Paint().apply {
-            color = Color.RED
-            style = Paint.Style.STROKE
-            strokeWidth = 4f
-        }
-        canvas.drawRect(xMin, yMin, xMax, yMax, roiPaint)
-
-        // Seed position within ROI (normalized)
-        val seedX = xMin + seed[0] * (xMax - xMin)
-        val seedY = yMin + seed[1] * (yMax - yMin)
-
-        // Draw the seed point
-        val seedPaint = Paint().apply {
-            color = Color.YELLOW
-            style = Paint.Style.FILL
-        }
-        canvas.drawCircle(seedX, seedY, 6f, seedPaint)
-
-        return mutableBitmap
     }
 
     private fun showLoadingState() {
@@ -310,7 +272,6 @@ class SeedScreen : AppCompatActivity() {
 
 
     private fun drawNormalizedRoiOnly(bitmap: Bitmap, roi: ROI): Bitmap {
-
         val x1 = roi.xMin.toFloat()
         val y1 = roi.yMin.toFloat()
         val x2 = roi.xMax.toFloat()
@@ -350,8 +311,10 @@ class SeedScreen : AppCompatActivity() {
         canvas.drawRect(x1, y1, x2, y2, roiPaint)
 
         // Draw seed inside ROI (normalized to ROI dimensions)
-        val seedX = x1 + seed[0] * (x2 - x1)
-        val seedY = y1 + seed[1] * (y2 - y1)
+        val seedX = seed[0]
+        val seedY = seed[1]
+
+        Log.d("SeedScreen", "Drawing seed at: ($seedX, $seedY) within ROI: ($x1, $y1, $x2, $y2)")
 
         val seedPaint = Paint().apply {
             color = Color.YELLOW
@@ -361,9 +324,6 @@ class SeedScreen : AppCompatActivity() {
 
         return mutableBitmap
     }
-
-
-
 
     private fun setupImageNavigation() {
         prevImage.setOnClickListener {
@@ -403,11 +363,6 @@ class SeedScreen : AppCompatActivity() {
         btnSerial.setOnClickListener {
             selectedMode = "Serial"
             Toast.makeText(this, "Serial mode selected", Toast.LENGTH_SHORT).show()
-            optionsPopup.visibility = View.GONE
-        }
-        btnGrpc.setOnClickListener {
-            selectedMode = "gRPC"
-            Toast.makeText(this, "gRPC mode selected", Toast.LENGTH_SHORT).show()
             optionsPopup.visibility = View.GONE
         }
     }

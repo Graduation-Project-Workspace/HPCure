@@ -167,6 +167,19 @@ class RoiScreen : AppCompatActivity() {
         customizeButton = findViewById(R.id.customize_button)
     }
 
+    // Add this helper function to crop the bitmap to ROI:
+    private fun cropBitmapToRoi(bitmap: Bitmap, roi: ROI): Bitmap {
+        val croppedBitmap = Bitmap.createBitmap(
+            bitmap,
+            roi.xMin,
+            roi.yMin,
+            roi.xMax - roi.xMin,
+            roi.yMax - roi.yMin
+        )
+
+        return croppedBitmap
+    }
+
     private fun setupOptionsPopup() {
         roiPredictor = ParallelRoiPredictor(context = context)
         optionsButton.setOnClickListener {
@@ -243,7 +256,6 @@ class RoiScreen : AppCompatActivity() {
                 confirmButton.visibility = View.VISIBLE
                 customizeButton.visibility = View.VISIBLE
                 predictButton.text = "Re-Predict ROI"
-
             }
         }
 

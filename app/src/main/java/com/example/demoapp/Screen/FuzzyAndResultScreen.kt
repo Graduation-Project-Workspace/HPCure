@@ -209,8 +209,8 @@ class FuzzyAndResultScreen : AppCompatActivity() {
                     seedMap[idx]?.let { seedArr ->
                         val roi = roiList[idx]
                         Pair(
-                            (seedArr[0] * (roi.xMax - roi.xMin) + roi.xMin).toInt(),
-                            (seedArr[1] * (roi.yMax - roi.yMin) + roi.yMin).toInt()
+                            seedArr[0].toInt(),
+                            seedArr[1].toInt()
                         )
                     } ?: Pair(0, 0)
                 }
@@ -246,72 +246,6 @@ class FuzzyAndResultScreen : AppCompatActivity() {
             showFuzzyLayout()
         }
     }
-
-    /*
-    private fun setupCalculateVolumeButton() {
-        calculateVolumeButton.setOnClickListener {
-            showLoadingState()
-            val startTime = System.currentTimeMillis()
-            CoroutineScope(Dispatchers.IO).launch {
-                val bitmaps = FileManager.getAllFiles().mapNotNull { file ->
-                    FileManager.getProcessedImage(this@FuzzyScreen, file)
-                }
-                val alphaCut = currentAlphaCutValue
-                Log.d(TAG, "Alpha cut value: $alphaCut")
-                val roiList = bitmaps.indices.map { idx ->
-                    roiMap[idx]?.let { roiArr ->
-                        val imgW = bitmaps[idx].width
-                        val imgH = bitmaps[idx].height
-                        val boxX = roiArr[0] * imgW
-                        val boxY = roiArr[1] * imgH
-                        val boxW = roiArr[2] * imgW
-                        val boxH = roiArr[3] * imgH
-                        val x1 = (boxX - boxW / 2).coerceAtLeast(0f).toInt()
-                        val y1 = (boxY - boxH / 2).coerceAtLeast(0f).toInt()
-                        val x2 = (boxX + boxW / 2).coerceAtMost(imgW.toFloat()).toInt()
-                        val y2 = (boxY + boxH / 2).coerceAtMost(imgH.toFloat()).toInt()
-                        ROI(xMin = x1, yMin = y1, xMax = x2, yMax = y2)
-                    } ?: ROI(0, 0, 0, 0)
-                }
-                val seedPoints = bitmaps.indices.map { idx ->
-                    seedMap[idx]?.let { seedArr ->
-                        val roi = roiList[idx]
-                        val x = (seedArr[0] * (roi.xMax - roi.xMin) + roi.xMin).toInt()
-                        val y = (seedArr[1] * (roi.yMax - roi.yMin) + roi.yMin).toInt()
-                        Pair(x, y)
-                    } ?: Pair(0, 0)
-                }
-
-                mriSequence = MRISequence(images = bitmaps, metadata = HashMap())
-                val fuzzySystem = ParallelFuzzySystem()
-                val volumeEstimator = VolumeEstimator(
-                    fuzzySystem = fuzzySystem,
-                    seedPredictor = ISeedPrecitor.DummySeedPredictor(),
-                    roiPredictor = IRoiPredictor.DummyRoiPredictor()
-                )
-
-                cancerVolume = fuzzySystem.estimateVolume(mriSequence, roiList, seedPoints, alphaCut)
-                val elapsed = System.currentTimeMillis() - startTime
-
-                withContext(Dispatchers.Main) {
-                    hideLoadingState()
-
-                    // Store in data holder for reliable transfer
-                    ResultsDataHolder.mriSequence = mriSequence
-                    ResultsDataHolder.cancerVolume = cancerVolume
-                    ResultsDataHolder.alphaCut = alphaCut
-                    ResultsDataHolder.timeTaken = elapsed
-                    ResultsDataHolder.roiList = roiList
-                    ResultsDataHolder.seedPoints = seedPoints
-
-                    val intent = Intent(this@FuzzyScreen, ResultsScreen::class.java)
-                    intent.putExtra("shouldCleanup", false)
-                    startActivity(intent)
-                }
-            }
-        }
-    }
-    */
 
     private fun setupImageNavigation() {
         // Fuzzy navigation
@@ -402,7 +336,6 @@ class FuzzyAndResultScreen : AppCompatActivity() {
 
 
     private fun drawNormalizedRoiOnly(bitmap: Bitmap, roi: ROI): Bitmap {
-
         val x1 = roi.xMin.toFloat()
         val y1 = roi.yMin.toFloat()
         val x2 = roi.xMax.toFloat()
@@ -437,9 +370,9 @@ class FuzzyAndResultScreen : AppCompatActivity() {
         }
         canvas.drawRect(x1, y1, x2, y2, roiPaint)
 
-        // Draw seed inside ROI (normalized to ROI dimensions)
-        val seedX = x1 + seed[0] * (x2 - x1)
-        val seedY = y1 + seed[1] * (y2 - y1)
+        // Draw seed inside ROI
+        val seedX = seed[0]
+        val seedY = seed[1]
 
         val seedPaint = Paint().apply {
             color = Color.YELLOW
