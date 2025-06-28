@@ -19,12 +19,13 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
 class ParallelRoiPredictor : IRoiPredictor {
-    private lateinit var modelFile : ByteBuffer
-    private lateinit var options: Interpreter.Options
+    private var modelFile : ByteBuffer? = null
+    private var options: Interpreter.Options
     private val interpreterPool = ThreadLocal<Interpreter>()
     private val assetManager: AssetManager
     private val inputSize = 512 // Model expects 512x512 input
     private val outputShape = intArrayOf(1, 5, 5376) // Based on Python output shape
+    private val modelName = "breast_roi_model.tflite"
 
     constructor(context: Context) {
         assetManager = context.assets
@@ -35,32 +36,29 @@ class ParallelRoiPredictor : IRoiPredictor {
             useNNAPI = true
             setNumThreads(4)
         }
-        modelFile = loadModelFile("breast_roi_model.tflite")
     }
 
     override fun predictRoi(mriSequence: MRISequence) : List<ROI> = runBlocking {
+        modelFile = loadModelFile()
         val jobs = mriSequence.images.map { sliceBitmap ->
-            async(Dispatchers.IO) {
-                val interpreter = interpreterPool.get() ?: Interpreter(modelFile.duplicate()).also {
-                    interpreterPool.set(it)
-                }
-                predictRoi(sliceBitmap, interpreter)
+            async(Dispatchers.Default) {
+                val interpreter = loadModel()
+                val roi = predictRoi(sliceBitmap, interpreter)
+                interpreter.close()
+                interpreterPool.set(null)
+                return@async roi
             }
         }
-        val roiList = jobs.awaitAll()
+        val jobsResults = jobs.awaitAll()
+        modelFile = null
 
-        return@runBlocking roiList
+        return@runBlocking jobsResults
     }
 
-    override fun predictRoi(sliceBitmap: Bitmap, tflite : Interpreter): ROI {
-//        val tflite = Interpreter(modelFile, options)
-
-        // Log input/output details for debugging
-        val inputTensor = tflite.getInputTensor(0)
-        val outputTensor = tflite.getOutputTensor(0)
-        Log.d("ModelDetails", "Input shape: ${inputTensor.shape().contentToString()}")
-        Log.d("ModelDetails", "Output shape: ${outputTensor.shape().contentToString()}")
-
+    override fun predictRoi(
+        sliceBitmap: Bitmap,
+        tflite : Interpreter
+    ): ROI {
         // Resize to model input size (512x512)
         val resizedBitmap = sliceBitmap.scale(inputSize, inputSize)
 
@@ -120,7 +118,22 @@ class ParallelRoiPredictor : IRoiPredictor {
         )
     }
 
-    private fun loadModelFile(modelName: String): ByteBuffer {
+    private fun loadModel() : Interpreter {
+        try {
+            if (interpreterPool.get() != null) {
+                return interpreterPool.get()!!
+            }
+
+            val interpreter = Interpreter(modelFile!!, options)
+            interpreterPool.set(interpreter)
+            return interpreter
+        } catch (e: Exception) {
+            Log.e("RoiPredictor", "Error loading model file", e)
+            throw e
+        }
+    }
+
+    private fun loadModelFile(): ByteBuffer {
         val assetFileDescriptor = assetManager.openFd(modelName)
         val inputStream = assetFileDescriptor.createInputStream()
         val modelBuffer = ByteArray(assetFileDescriptor.length.toInt())

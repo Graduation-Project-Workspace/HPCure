@@ -1,7 +1,6 @@
 package com.example.demoapp.Utils
 
 import android.content.Context
-import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
 import android.provider.DocumentsContract
@@ -12,6 +11,7 @@ import java.io.IOException
 
 object FileManager {
     private var dicomFiles = mutableListOf<File>()
+    private var dicomFilesUris = mutableListOf<Uri>()
     private var currentIndex = 0
     private lateinit var cacheDir: File
 
@@ -51,6 +51,7 @@ object FileManager {
                         val documentUri = DocumentsContract.buildDocumentUriUsingTree(uri, documentId)
                         val tempFile = createTempFile(context, documentUri, name)
                         dicomFiles.add(tempFile)
+                        dicomFilesUris.add(documentUri)
                     }
                 }
             }
@@ -178,6 +179,11 @@ object FileManager {
 
     fun getProcessedImage(context: Context, file: File): Bitmap? {
         return try {
+            // If file was cleared from cache, try to reprocess it
+            if (!file.exists()) {
+                reloadFiles(context)
+            }
+
             if (!isValidDicomFile(file)) {
                 Log.e("FileManager", "Invalid DICOM file: ${file.name}")
                 throw Exception("Invalid DICOM file")
@@ -215,6 +221,23 @@ object FileManager {
     fun cleanupTemporary() {
         // Only clear cache without resetting files array
         clearCache()
+    }
+
+    fun reloadFiles(context: Context) {
+        dicomFiles = mutableListOf()
+        for (uri in dicomFilesUris) {
+            try {
+                val name = getFileName(context, uri)
+                val tempFile = createTempFile(context, uri, name)
+                if (isValidDicomFile(tempFile)) {
+                    dicomFiles.add(tempFile)
+                } else {
+                    tempFile.delete()
+                }
+            } catch (e: Exception) {
+                Log.e("FileManager", "Error reloading file from URI: $uri", e)
+            }
+        }
     }
 
     private fun clearCache() {

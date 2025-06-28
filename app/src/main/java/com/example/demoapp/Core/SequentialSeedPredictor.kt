@@ -7,14 +7,15 @@ import android.graphics.Color
 import android.util.Log
 import androidx.core.graphics.scale
 import com.example.demoapp.Core.Interfaces.ISeedPrecitor
+import com.example.demoapp.Model.MRISequence
 import com.example.demoapp.Model.ROI
 import com.example.demoapp.Utils.GpuDelegateHelper
 import org.tensorflow.lite.Interpreter
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
-class SeedPredictor : ISeedPrecitor {
-    private lateinit var tflite: Interpreter
+class SequentialSeedPredictor : ISeedPrecitor {
+    private var tflite: Interpreter
     private val assetManager: AssetManager
     private val inputSize = 512 // Model expects 512x512 input
 
@@ -47,9 +48,29 @@ class SeedPredictor : ISeedPrecitor {
     }
 
     override fun predictSeed(
+        mriSeq: MRISequence,
+        roi: List<ROI>
+    ): Array<Pair<Int, Int>> {
+        val seedPoints = mutableListOf<Pair<Int, Int>>()
+
+        for ((index, sliceBitmap) in mriSeq.images.withIndex()) {
+            try {
+                val seedPoint = predictSeed(sliceBitmap, roi[index])
+                seedPoints.add(seedPoint)
+            } catch (e: Exception) {
+                Log.e("SeedPredictor", "Error predicting seed for slice $index", e)
+                // Handle error, e.g., add a default value or skip
+                seedPoints.add(Pair(0, 0)) // Default value if prediction fails
+            }
+        }
+
+        return seedPoints.toTypedArray()
+    }
+
+    fun predictSeed(
         slice_bitmap: Bitmap,
         roi: ROI
-    ): Array<FloatArray> {
+    ): Pair<Int, Int> {
         // Crop the bitmap to the ROI
         val croppedBitmap = Bitmap.createBitmap(
             slice_bitmap,
@@ -97,7 +118,7 @@ class SeedPredictor : ISeedPrecitor {
         Log.d("SeedPredictor", "Rescaled seed point: ($rescaledSeedX, $rescaledSeedY)")
 
         // Return just the x,y coordinates
-        return arrayOf(floatArrayOf(rescaledSeedX, rescaledSeedY))
+        return Pair(rescaledSeedX.toInt(), rescaledSeedY.toInt())
     }
 
     private fun convertBitmapToFloatBuffer(bitmap: Bitmap): ByteBuffer {

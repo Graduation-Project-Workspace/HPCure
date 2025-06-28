@@ -17,7 +17,7 @@ import kotlin.math.max
 import kotlin.math.min
 
 class SequentialRoiPredictor : IRoiPredictor {
-    private lateinit var tflite: Interpreter
+    private var tflite: Interpreter
     private val assetManager: AssetManager
     private val inputSize = 512 // Model expects 512x512 input
     private val outputShape = intArrayOf(1, 5, 5376) // Based on Python output shape

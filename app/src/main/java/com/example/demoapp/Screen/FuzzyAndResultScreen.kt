@@ -65,8 +65,8 @@ class FuzzyAndResultScreen : AppCompatActivity() {
     private var seedTimeTaken: Long = 0
     private lateinit var cancerVolume: CancerVolume
     private lateinit var mriSequence: MRISequence
-    private val roiMap: MutableMap<Int, ROI> = mutableMapOf()
-    private val seedMap: MutableMap<Int, FloatArray> = mutableMapOf()
+    private lateinit var roiList: List<ROI>
+    private lateinit var seedList: Array<Pair<Int, Int>>
     private val fuzzyHighlightMap: MutableMap<Int, Boolean> = mutableMapOf()
 
     private val storagePermissionLauncher = registerForActivityResult(
@@ -87,21 +87,37 @@ class FuzzyAndResultScreen : AppCompatActivity() {
         seedTimeTaken = intent.getLongExtra("seed_time_taken", 0)
 
         @Suppress("UNCHECKED_CAST")
-        intent.getSerializableExtra("roi_map")?.let { extra ->
-            val incomingMap = extra as? HashMap<Int, ROI>
-            if (incomingMap != null) {
-                roiMap.clear()
-                roiMap.putAll(incomingMap)
+        intent.getSerializableExtra("roi_list")?.let { extra ->
+            val incomingRoiList = extra as? List<ROI>
+            if (incomingRoiList != null) {
+                roiList = incomingRoiList
+            } else {
+                roiList = emptyList()
             }
         }
         @Suppress("UNCHECKED_CAST")
-        intent.getSerializableExtra("seed_map")?.let { extra ->
-            val incomingSeedMap = extra as? HashMap<Int, FloatArray>
-            if (incomingSeedMap != null) {
-                seedMap.clear()
-                seedMap.putAll(incomingSeedMap)
+        intent.getSerializableExtra("seed_list")?.let { extra ->
+            val incomingSeedList = extra as? Array<Pair<Int, Int>>
+            if (incomingSeedList != null) {
+                seedList = incomingSeedList
+            } else {
+                seedList = emptyArray()
             }
         }
+
+        if (FileManager.getAllFiles().isEmpty()) {
+            Toast.makeText(this, "No images loaded! Returning to upload screen.", Toast.LENGTH_LONG).show()
+            val intent = Intent(this, UploadScreen::class.java)
+            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            startActivity(intent)
+            finish()
+            return
+        }
+
+        val bitmaps = FileManager.getAllFiles().mapNotNull { file ->
+            FileManager.getProcessedImage(this, file)
+        }
+        mriSequence = MRISequence(images = bitmaps, metadata = HashMap())
 
         if (checkStoragePermission()) {
             initializeApp()
@@ -195,29 +211,10 @@ class FuzzyAndResultScreen : AppCompatActivity() {
             val startTime = System.currentTimeMillis()
 
             CoroutineScope(Dispatchers.Default).launch {
-                val bitmaps = FileManager.getAllFiles().mapNotNull { file ->
-                    FileManager.getProcessedImage(this@FuzzyAndResultScreen, file)
-                }
                 val alphaCut = currentAlphaCutValue
-                val roiList = bitmaps.indices.map { idx ->
-                    roiMap[idx]?.let { roiArr ->
-                        roiArr
-                    } ?: ROI(0, 0, 0, 0)
-                }
 
-                val seedPoints = bitmaps.indices.map { idx ->
-                    seedMap[idx]?.let { seedArr ->
-                        val roi = roiList[idx]
-                        Pair(
-                            seedArr[0].toInt(),
-                            seedArr[1].toInt()
-                        )
-                    } ?: Pair(0, 0)
-                }
-
-                mriSequence = MRISequence(images = bitmaps, metadata = HashMap())
                 val fuzzySystem = ParallelFuzzySystem()
-                cancerVolume = fuzzySystem.estimateVolume(mriSequence, roiList, seedPoints, alphaCut)
+                cancerVolume = fuzzySystem.estimateVolume(mriSequence, roiList, seedList.toList(), alphaCut)
                 val elapsed = System.currentTimeMillis() - startTime
 
                 withContext(Dispatchers.Main) {
@@ -269,34 +266,29 @@ class FuzzyAndResultScreen : AppCompatActivity() {
     }
 
     private fun loadCurrentImage() {
-        val file = FileManager.getCurrentFile()
         val index = FileManager.getCurrentIndex() - 1
-        file?.let {
-            val bitmap = FileManager.getProcessedImage(this, it)
-            if (bitmap != null) {
-                val roi = roiMap[index]
-                val seed = seedMap[index]
-                val fuzzy = fuzzyHighlightMap[index] == true
-                val displayBitmap = when {
-                    roi != null && seed != null -> drawSeedPointInsideNormalizedRoi(bitmap, roi, seed)
-                    roi != null -> drawNormalizedRoiOnly(bitmap, roi)
-                    else -> bitmap
-                }
-                fuzzyMriImage.setImageBitmap(displayBitmap)
+        val displayBitmap = when {
+            index < roiList.size && index < seedList.size -> {
+                drawSeedPointInsideNormalizedRoi(mriSequence.images[index], roiList[index], seedList[index])
+            }
+            index < roiList.size -> {
+                drawNormalizedRoiOnly(mriSequence.images[index], roiList[index])
+            }
+            else -> {
+                mriSequence.images[index]
             }
         }
+        fuzzyMriImage.setImageBitmap(displayBitmap)
+
         updateNavigationButtons()
     }
 
     private fun loadCurrentResultsImage() {
-        val file = FileManager.getCurrentFile()
         val index = FileManager.getCurrentIndex() - 1
-        file?.let {
-            val bitmap = FileManager.getProcessedImage(this, it)
-            if (bitmap != null && ::cancerVolume.isInitialized) {
-                val displayBitmap = highlightCancerArea(bitmap, index)
-                resultsMriImage.setImageBitmap(displayBitmap)
-            }
+
+        if (::cancerVolume.isInitialized) {
+            val displayBitmap = highlightCancerArea(mriSequence.images[index], index)
+            resultsMriImage.setImageBitmap(displayBitmap)
         }
     }
 
@@ -352,7 +344,7 @@ class FuzzyAndResultScreen : AppCompatActivity() {
         return mutableBitmap
     }
 
-    private fun drawSeedPointInsideNormalizedRoi(bitmap: Bitmap, roi: ROI, seed: FloatArray): Bitmap {
+    private fun drawSeedPointInsideNormalizedRoi(bitmap: Bitmap, roi: ROI, seed: Pair<Int, Int>): Bitmap {
 
         val x1 = roi.xMin.toFloat()
         val y1 = roi.yMin.toFloat()
@@ -371,8 +363,8 @@ class FuzzyAndResultScreen : AppCompatActivity() {
         canvas.drawRect(x1, y1, x2, y2, roiPaint)
 
         // Draw seed inside ROI
-        val seedX = seed[0]
-        val seedY = seed[1]
+        val seedX = seed.first.toFloat()
+        val seedY = seed.second.toFloat()
 
         val seedPaint = Paint().apply {
             color = Color.YELLOW

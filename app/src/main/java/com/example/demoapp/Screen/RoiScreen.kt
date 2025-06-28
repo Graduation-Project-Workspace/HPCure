@@ -22,7 +22,6 @@ import androidx.core.content.ContextCompat
 import com.example.demoapp.Core.Interfaces.IRoiPredictor
 import com.example.demoapp.Core.ParallelRoiPredictor
 import com.example.demoapp.Core.SequentialRoiPredictor
-import com.example.demoapp.Model.CancerVolume
 import com.example.demoapp.Model.MRISequence
 import com.example.demoapp.Model.ROI
 import com.example.demoapp.R
@@ -53,13 +52,13 @@ class RoiScreen : AppCompatActivity() {
     private lateinit var customizeButton: Button
 
     private lateinit var roiPredictor: IRoiPredictor
+    private lateinit var parallelRoiPredictor: ParallelRoiPredictor
+    private lateinit var sequentialRoiPredictor: SequentialRoiPredictor
 
-    private lateinit var cancerVolume: CancerVolume
     private lateinit var mriSequence: MRISequence
-    private lateinit var bitmaps : List<Bitmap>
     private var selectedMode: String = "Parallel"
 
-    private val roiMap: MutableMap<Int, ROI> = mutableMapOf()
+    private var roiList : List<ROI> = emptyList()
     private val context = this
 
     private val storagePermissionLauncher = registerForActivityResult(
@@ -77,6 +76,10 @@ class RoiScreen : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.shared_roi_seed_screen)
 
+        parallelRoiPredictor = ParallelRoiPredictor(context = context)
+        sequentialRoiPredictor = SequentialRoiPredictor(context = context)
+        roiPredictor = parallelRoiPredictor // Default to Parallel mode
+
         if (FileManager.getAllFiles().isEmpty()) {
             Toast.makeText(this, "No images loaded! Returning to upload screen.", Toast.LENGTH_LONG).show()
             val intent = Intent(this, UploadScreen::class.java)
@@ -85,11 +88,11 @@ class RoiScreen : AppCompatActivity() {
             finish()
             return
         }
-        else {
-            bitmaps = FileManager.getAllFiles().mapNotNull { file ->
-                FileManager.getProcessedImage(this, file)
-            }
+
+        val bitmaps = FileManager.getAllFiles().mapNotNull { file ->
+            FileManager.getProcessedImage(this, file)
         }
+        mriSequence = MRISequence(images = bitmaps, metadata = HashMap())
 
         if (checkStoragePermission()) {
             initializeApp()
@@ -167,21 +170,7 @@ class RoiScreen : AppCompatActivity() {
         customizeButton = findViewById(R.id.customize_button)
     }
 
-    // Add this helper function to crop the bitmap to ROI:
-    private fun cropBitmapToRoi(bitmap: Bitmap, roi: ROI): Bitmap {
-        val croppedBitmap = Bitmap.createBitmap(
-            bitmap,
-            roi.xMin,
-            roi.yMin,
-            roi.xMax - roi.xMin,
-            roi.yMax - roi.yMin
-        )
-
-        return croppedBitmap
-    }
-
     private fun setupOptionsPopup() {
-        roiPredictor = ParallelRoiPredictor(context = context)
         optionsButton.setOnClickListener {
             optionsPopup.visibility = if (optionsPopup.visibility == View.VISIBLE) View.GONE else View.VISIBLE
         }
@@ -189,18 +178,13 @@ class RoiScreen : AppCompatActivity() {
             selectedMode = "Parallel"
             Toast.makeText(this, "Parallel mode selected", Toast.LENGTH_SHORT).show()
             optionsPopup.visibility = View.GONE
-            roiPredictor = ParallelRoiPredictor(context = context)
+            roiPredictor = parallelRoiPredictor
         }
         btnSerial.setOnClickListener {
             selectedMode = "Serial"
             Toast.makeText(this, "Serial mode selected", Toast.LENGTH_SHORT).show()
             optionsPopup.visibility = View.GONE
-            roiPredictor = SequentialRoiPredictor(context = context)
-        }
-        btnGrpc.setOnClickListener {
-            selectedMode = "gRPC"
-            Toast.makeText(this, "gRPC mode selected", Toast.LENGTH_SHORT).show()
-            optionsPopup.visibility = View.GONE
+            roiPredictor = parallelRoiPredictor
         }
     }
 
@@ -238,12 +222,7 @@ class RoiScreen : AppCompatActivity() {
             CoroutineScope(Dispatchers.IO).launch {
                 val startTime = System.currentTimeMillis()
 
-                mriSequence = MRISequence(images = bitmaps, metadata = HashMap())
-                val roiList = roiPredictor.predictRoi(mriSequence)
-
-                bitmaps.indices.forEach { index ->
-                    roiMap[index] = roiList[index]
-                }
+                roiList = roiPredictor.predictRoi(mriSequence)
 
                 val endTime = System.currentTimeMillis()
                 val timeTaken = endTime - startTime
@@ -252,20 +231,20 @@ class RoiScreen : AppCompatActivity() {
                     hideLoadingState()
                     loadCurrentImage()
                     patientName.text = "Time Taken: $timeTaken ms"
+                    confirmButton.visibility = View.VISIBLE
+                    customizeButton.visibility = View.VISIBLE
+                    predictButton.text = "Re-Predict ROI"
                 }
-                confirmButton.visibility = View.VISIBLE
-                customizeButton.visibility = View.VISIBLE
-                predictButton.text = "Re-Predict ROI"
             }
         }
 
     }
     private fun setupConfirmButton() {
         confirmButton.setOnClickListener {
-            val roiHashMap = HashMap<Int, ROI>(roiMap)
             val intent = Intent(this, SeedScreen::class.java)
-            intent.putExtra("roi_map", roiHashMap)
+            intent.putExtra("roi_list", ArrayList(roiList))
             intent.putExtra("roi_time_taken", patientName.text.toString().replace("Time Taken: ", "").replace(" ms", "").toLong())
+            intent.putExtra("mri_sequence", mriSequence)
             intent.putExtra("shouldCleanup", false)
             startActivity(intent)
         }
@@ -293,22 +272,17 @@ class RoiScreen : AppCompatActivity() {
     }
 
     private fun loadCurrentImage() {
-        val file = FileManager.getCurrentFile()
         val index = FileManager.getCurrentIndex() - 1
-        file?.let {
-            val bitmap = FileManager.getProcessedImage(this, it)
-            if (bitmap != null) {
-                val displayBitmap = roiMap[index]?.let { roi ->
-                    drawRoiRectangleOnBitmap(bitmap, roi)
-                } ?: bitmap
+        val displayBitmap = roiList.getOrNull(index)?.let {
+            drawRoiRectangleOnBitmap(mriSequence.images[index], roiList[index])
+        } ?: mriSequence.images[index]
 
-                mriImage.apply {
-                    setImageBitmap(displayBitmap)
-                    scaleType = ImageView.ScaleType.FIT_CENTER
-                    adjustViewBounds = true
-                }
-            }
+        mriImage.apply {
+            setImageBitmap(displayBitmap)
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            adjustViewBounds = true
         }
+
         updateNavigationButtons()
     }
 
@@ -356,11 +330,11 @@ class RoiScreen : AppCompatActivity() {
     }
 
 
-    override fun onDestroy() {
-        super.onDestroy()
-        val shouldCleanup = intent.getBooleanExtra("shouldCleanup", true)
-        if (shouldCleanup) {
-            FileManager.cleanupTemporary()
-        }
-    }
+//    override fun onDestroy() {
+//        super.onDestroy()
+//        val shouldCleanup = intent.getBooleanExtra("shouldCleanup", true)
+//        if (shouldCleanup) {
+//            FileManager.cleanupTemporary()
+//        }
+//    }
 }

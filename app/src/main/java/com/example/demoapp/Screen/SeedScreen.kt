@@ -20,7 +20,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import com.example.demoapp.Core.SeedPredictor
+import com.example.demoapp.Core.Interfaces.ISeedPrecitor
+import com.example.demoapp.Core.ParallelSeedPredictor
+import com.example.demoapp.Core.SequentialSeedPredictor
 import com.example.demoapp.Model.MRISequence
 import com.example.demoapp.Model.ROI
 import com.example.demoapp.R
@@ -54,9 +56,12 @@ class SeedScreen : AppCompatActivity() {
     private var roiTimeTaken: Long = 0
 
 
-    private val roiMap: MutableMap<Int, ROI> = mutableMapOf()
-    private val seedMap = mutableMapOf<Int, FloatArray>()
+    private var roiList : List<ROI> = emptyList()
+    private var seedList : Array<Pair<Int, Int>> = emptyArray()
     private val context = this
+    private lateinit var seedPredictor : ISeedPrecitor
+    private lateinit var parallelSeedPredictor: ParallelSeedPredictor
+    private lateinit var sequentialSeedPredictor: SequentialSeedPredictor
 
     private val storagePermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -72,16 +77,16 @@ class SeedScreen : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.shared_roi_seed_screen)
+        parallelSeedPredictor = ParallelSeedPredictor(context)
+        sequentialSeedPredictor = SequentialSeedPredictor(context)
+        seedPredictor = parallelSeedPredictor // Default to Parallel mode
         roiTimeTaken = intent.getLongExtra("roi_time_taken", 0)
 
-
-        // --- Receive the roi_map from intent, if provided ---
         @Suppress("UNCHECKED_CAST")
-        intent.getSerializableExtra("roi_map")?.let { extra ->
-            val incomingMap = extra as? HashMap<Int, ROI>
-            if (incomingMap != null) {
-                roiMap.clear()
-                roiMap.putAll(incomingMap)
+        intent.getSerializableExtra("roi_list")?.let { extra ->
+            val incomingRoiList = extra as? List<ROI>
+            if (incomingRoiList != null) {
+                roiList = incomingRoiList
             }
         }
 
@@ -93,6 +98,11 @@ class SeedScreen : AppCompatActivity() {
             finish()
             return
         }
+
+        val bitmaps = FileManager.getAllFiles().mapNotNull { file ->
+            FileManager.getProcessedImage(this, file)
+        }
+        mriSequence = MRISequence(images = bitmaps, metadata = HashMap())
 
         if (checkStoragePermission()) {
             initializeApp()
@@ -173,27 +183,18 @@ class SeedScreen : AppCompatActivity() {
     // Only use ROI received from RoiScreen, and predict SEED using it
     private fun setupPredictButton() {
         predictButton.setOnClickListener {
-            if (roiMap.isEmpty()) {
+            if (roiList.isEmpty()) {
                 Toast.makeText(this, "No ROI received! Please return to ROI screen.", Toast.LENGTH_LONG).show()
                 return@setOnClickListener
             }
             showLoadingState()
             CoroutineScope(Dispatchers.IO).launch {
                 val startTime = System.currentTimeMillis()
-                val bitmaps = FileManager.getAllFiles().mapNotNull { file ->
-                    FileManager.getProcessedImage(this@SeedScreen, file)
-                }
 
-                val seedPredictor = SeedPredictor(context = context)
-                mriSequence = MRISequence(images = bitmaps, metadata = HashMap())
-
-                bitmaps.mapIndexed { index, bitmap ->
-                    val roi = roiMap[index]
-                    if (roi != null) {
-                        val seed = seedPredictor.predictSeed(bitmap, roi)[0]
-                        seedMap[index] = seed
-                    }
-                }
+                seedList = seedPredictor.predictSeed(
+                    mriSeq = mriSequence,
+                    roiList = roiList
+                )
 
                 val endTime = System.currentTimeMillis()
                 val timeTaken = endTime - startTime
@@ -202,24 +203,21 @@ class SeedScreen : AppCompatActivity() {
                     hideLoadingState()
                     loadCurrentImage()
                     patientName.text = "Time Taken: $timeTaken ms"
+                    confirmButton.visibility = View.VISIBLE
+                    customizeButton.visibility = View.VISIBLE
+                    predictButton.text = "Re-Predict Seed"
                 }
-                confirmButton.visibility = View.VISIBLE
-                customizeButton.visibility = View.VISIBLE
-                predictButton.text = "Re-Predict Seed"
-
             }
         }
     }
 
     private fun setupConfirmButton() {
         confirmButton.setOnClickListener {
-            val roiHashMap = HashMap<Int, ROI>(roiMap)
-            val seedHashMap = HashMap<Int, FloatArray>(seedMap)
             val seedTimeTaken = patientName.text.toString().replace("Time Taken: ", "").replace(" ms", "").toLong()
 
             val intent = Intent(this, FuzzyAndResultScreen::class.java).apply {
-                putExtra("seed_map", seedHashMap)
-                putExtra("roi_map", roiHashMap)
+                putExtra("seed_list", seedList)
+                putExtra("roi_list", ArrayList(roiList))
                 putExtra("roi_time_taken", roiTimeTaken)
                 putExtra("seed_time_taken", seedTimeTaken)
                 putExtra("shouldCleanup", false)
@@ -243,30 +241,25 @@ class SeedScreen : AppCompatActivity() {
     }
 
     private fun loadCurrentImage() {
-        val file = FileManager.getCurrentFile()
         val index = FileManager.getCurrentIndex() - 1
-        file?.let {
-            val bitmap = FileManager.getProcessedImage(this, it)
-            if (bitmap != null) {
-                val roi = roiMap[index]
-                val seed = seedMap[index]
-                val displayBitmap = if (roi != null) {
-                    if (seed != null) {
-                        drawSeedPointInsideNormalizedRoi(bitmap, roi, seed)
-                    } else {
-                        drawNormalizedRoiOnly(bitmap, roi)
-                    }
-                } else {
-                    bitmap
-                }
-
-                mriImage.apply {
-                    setImageBitmap(displayBitmap)
-                    scaleType = ImageView.ScaleType.FIT_CENTER
-                    adjustViewBounds = true
-                }
-            }
+        val displayBitmap = if (roiList.size > index && seedList.size > index) {
+            drawSeedPointInsideNormalizedRoi(
+                mriSequence.images[index],
+                roiList[index],
+                seedList[index]
+            )
+        } else if (roiList.size > index) {
+            drawNormalizedRoiOnly(mriSequence.images[index], roiList[index])
+        } else {
+            mriSequence.images[index]
         }
+
+        mriImage.apply {
+            setImageBitmap(displayBitmap)
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            adjustViewBounds = true
+        }
+
         updateNavigationButtons()
     }
 
@@ -291,7 +284,7 @@ class SeedScreen : AppCompatActivity() {
     private fun drawSeedPointInsideNormalizedRoi(
         bitmap: Bitmap,
         roi: ROI,
-        seed: FloatArray
+        seed: Pair<Int, Int>
     ): Bitmap {
 
         val x1 = roi.xMin.toFloat()
@@ -311,8 +304,8 @@ class SeedScreen : AppCompatActivity() {
         canvas.drawRect(x1, y1, x2, y2, roiPaint)
 
         // Draw seed inside ROI (normalized to ROI dimensions)
-        val seedX = seed[0]
-        val seedY = seed[1]
+        val seedX = seed.first.toFloat()
+        val seedY = seed.second.toFloat()
 
         Log.d("SeedScreen", "Drawing seed at: ($seedX, $seedY) within ROI: ($x1, $y1, $x2, $y2)")
 
@@ -359,11 +352,13 @@ class SeedScreen : AppCompatActivity() {
             selectedMode = "Parallel"
             Toast.makeText(this, "Parallel mode selected", Toast.LENGTH_SHORT).show()
             optionsPopup.visibility = View.GONE
+            seedPredictor = parallelSeedPredictor
         }
         btnSerial.setOnClickListener {
-            selectedMode = "Serial"
-            Toast.makeText(this, "Serial mode selected", Toast.LENGTH_SHORT).show()
+            selectedMode = "Sequential"
+            Toast.makeText(this, "Sequential mode selected", Toast.LENGTH_SHORT).show()
             optionsPopup.visibility = View.GONE
+            seedPredictor = sequentialSeedPredictor
         }
     }
 
