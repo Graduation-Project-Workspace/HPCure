@@ -43,27 +43,42 @@ class FuzzyConnectedness(private val img: Bitmap, private val roi : ROI, private
         return neighbors
     }
 
+    private fun getIntensity(index: Int): Float {
+        val color = pixels[index]
+        val r = (color shr 16) and 0xFF
+        val g = (color shr 8) and 0xFF
+        val b = color and 0xFF
+        return (0.299f * r + 0.587f * g + 0.114f * b) / 255f  // Normalize to [0,1]
+    }
+
     private fun ave(c: Int, d: Int): Float {
-        return 0.5f * (pixels[c] + pixels[d])
+        return 0.5f * (getIntensity(c) + getIntensity(d))
     }
 
     private fun reldiff(c: Int, d: Int): Float {
-        val fc = pixels[c].toFloat()
-        val fd = pixels[d].toFloat()
-        return if (fc == -fd) 0f else abs(fc - fd) / (fc + fd)
+        val fc = getIntensity(c)
+        val fd = getIntensity(d)
+        return if (fc + fd == 0f) 0f else abs(fc - fd) / (fc + fd)
     }
 
     private fun gaussian(value: Float, mean: Float, sigma: Float): Float {
-        val adjustedSigma = if (sigma == 0f) 0.000001f else sigma
-        return exp(-((value - mean) * (value - mean)) / (2 * adjustedSigma * adjustedSigma))
+        val adjustedSigma = maxOf(sigma, 0.1f)  // More reasonable minimum
+        val exponent = -((value - mean) * (value - mean)) / (2 * adjustedSigma * adjustedSigma)
+        // Limit extreme exponents to prevent underflow
+        return exp(maxOf(exponent, -10.0f))
     }
 
     private fun affinity(c: Int, d: Int): Float {
         val gAve = gaussian(ave(c, d), meanAve, sigmaAve)
         val gRelDiff = gaussian(reldiff(c, d), meanRelDiff, sigmaRelDiff)
-        return minOf(gAve, gRelDiff)
-    }
 
+        // Weight the components or use a different combination formula
+        // return 0.7f * gAve + 0.3f * gRelDiff  // Weighted average
+
+        // OR use a softened minimum that's not as harsh as min()
+        val weight = 0.8f  // Controls the "softness" of the minimum
+        return weight * minOf(gAve, gRelDiff) + (1 - weight) * maxOf(gAve, gRelDiff)
+    }
     private var meanAve = 0f
     private var sigmaAve = 0f
     private var meanRelDiff = 0f
