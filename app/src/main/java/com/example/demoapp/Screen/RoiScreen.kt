@@ -20,11 +20,11 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import com.example.demoapp.Core.Interfaces.IRoiPredictor
 import com.example.demoapp.Core.ParallelRoiPredictor
 import com.example.demoapp.Core.SequentialRoiPredictor
-import com.example.demoapp.Model.MRISequence
-import com.example.demoapp.Model.ROI
+import com.example.domain.interfaces.tumor.*
+import com.example.domain.model.MRISequence
+import com.example.domain.model.ROI
 import com.example.demoapp.R
 import com.example.demoapp.Utils.FileManager
 import com.example.demoapp.Utils.GpuDelegateHelper

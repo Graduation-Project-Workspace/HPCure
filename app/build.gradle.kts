@@ -17,6 +17,9 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        
+        // Enable multidex for large app
+        multiDexEnabled = true
     }
 
     buildTypes {
@@ -26,6 +29,10 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+        }
+        debug {
+            isDebuggable = true
+            isJniDebuggable = true
         }
     }
     compileOptions {
@@ -61,6 +68,9 @@ android {
             excludes += "META-INF/INDEX.LIST"
         }
     }
+    
+    // NDK configuration
+    ndkVersion = "25.2.9519653"
 }
 
 dependencies {
@@ -68,6 +78,7 @@ dependencies {
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("androidx.core:core-splashscreen:1.0.1")
+    implementation("androidx.multidex:multidex:2.0.1")
 
     // Material Design & UI
     implementation("com.google.android.material:material:1.11.0")
@@ -82,8 +93,13 @@ dependencies {
     // TensorFlow Lite
     implementation("org.tensorflow:tensorflow-lite:2.9.0")
     implementation("org.tensorflow:tensorflow-lite-gpu:2.9.0")
-    implementation("org.tensorflow:tensorflow-lite-support:0.4.2")
+    implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
     implementation("org.tensorflow:tensorflow-lite-select-tf-ops:2.8.0")
+    implementation("org.tensorflow:tensorflow-lite-metadata:0.4.4")
+    
+    // AutoValue for TensorFlow Lite Support
+    compileOnly("com.google.auto.value:auto-value-annotations:1.10.4")
+    annotationProcessor("com.google.auto.value:auto-value:1.10.4")
 
     // DICOM (DCM4CHE)
     implementation("org.dcm4che:dcm4che-core:5.31.2")
@@ -101,4 +117,8 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
+
+    // dependencies
+    implementation(project(":domain"))
+
 }

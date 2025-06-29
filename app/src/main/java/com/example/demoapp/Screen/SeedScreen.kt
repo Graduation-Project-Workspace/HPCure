@@ -19,11 +19,11 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import com.example.demoapp.Core.Interfaces.ISeedPrecitor
+import com.example.domain.interfaces.tumor.ISeedPredictor
 import com.example.demoapp.Core.ParallelSeedPredictor
 import com.example.demoapp.Core.SequentialSeedPredictor
-import com.example.demoapp.Model.MRISequence
-import com.example.demoapp.Model.ROI
+import com.example.domain.model.MRISequence
+import com.example.domain.model.ROI
 import com.example.demoapp.R
 import com.example.demoapp.Utils.FileManager
 import com.example.demoapp.Utils.GpuDelegateHelper
@@ -50,7 +50,7 @@ class SeedScreen : AppCompatActivity() {
     private lateinit var confirmButton: Button
     private lateinit var customizeButton: Button
 
-    private lateinit var seedPredictor: ISeedPrecitor
+    private lateinit var seedPredictor: ISeedPredictor
     private lateinit var parallelSeedPredictor: ParallelSeedPredictor
     private lateinit var sequentialSeedPredictor: SequentialSeedPredictor
 

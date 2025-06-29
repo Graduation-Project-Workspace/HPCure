@@ -1,9 +1,9 @@
-package com.example.demoapp.Core.Interfaces
+package com.example.domain.interfaces.tumor
 
-import com.example.demoapp.Model.MRISequence
-import com.example.demoapp.Model.ROI
+import com.example.domain.model.MRISequence
+import com.example.domain.model.ROI
 
-interface ISeedPrecitor {
+interface ISeedPredictor {
     fun predictSeed(
         mriSeq: MRISequence,
         roiList: List<ROI>,

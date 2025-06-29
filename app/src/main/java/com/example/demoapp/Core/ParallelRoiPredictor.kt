@@ -6,10 +6,9 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.util.Log
 import androidx.core.graphics.scale
-import com.example.demoapp.Core.Interfaces.IRoiPredictor
-import com.example.demoapp.Model.MRISequence
-import com.example.demoapp.Model.ROI
+import com.example.domain.model.*
 import com.example.demoapp.Utils.GpuDelegateHelper
+import com.example.domain.interfaces.tumor.IRoiPredictor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll

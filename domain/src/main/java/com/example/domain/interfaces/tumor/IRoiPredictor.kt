@@ -1,7 +1,7 @@
-package com.example.demoapp.Core.Interfaces
+package com.example.domain.interfaces.tumor
 import android.graphics.Bitmap
-import com.example.demoapp.Model.MRISequence
-import com.example.demoapp.Model.ROI
+import com.example.domain.model.MRISequence
+import com.example.domain.model.ROI
 import org.tensorflow.lite.Interpreter
 
 

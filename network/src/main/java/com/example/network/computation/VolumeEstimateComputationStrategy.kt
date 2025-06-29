@@ -5,6 +5,7 @@ import com.example.domain.interfaces.network.IComputationStrategy
 import com.example.domain.interfaces.tumor.IRoiPredictor
 import com.example.domain.interfaces.tumor.ISeedPredictor
 import com.example.domain.model.ROI
+import com.example.domain.model.MRISequence
 import com.example.protos.AssignTaskRequest
 import com.example.protos.AssignTaskResponse
 import com.example.protos.VolumeEstimateResponse
@@ -34,24 +35,21 @@ class VolumeEstimateComputationStrategy(
             // Convert slice data to bitmap
             val bitmap = BitmapFactory.decodeByteArray(slice.imageData.toByteArray(), 0, slice.imageData.size())
             
-            // Get ROI prediction
-            val roiArray = roiPredictor.predictRoi(bitmap)
-            val roi = ROI(
-                xMin = (roiArray[0][0] * slice.width).toInt(),
-                yMin = (roiArray[0][1] * slice.height).toInt(),
-                xMax = (roiArray[0][2] * slice.width).toInt(),
-                yMax = (roiArray[0][3] * slice.height).toInt()
-            )
+            // Create MRISequence with single bitmap
+            val mriSequence = MRISequence(listOf(bitmap), HashMap())
+            
+            // Get ROI prediction using the MRISequence overload
+            val roiList = roiPredictor.predictRoi(mriSequence)
+            val roi = roiList.firstOrNull() ?: ROI(0, 0, slice.width, slice.height)
             rois.add(roi)
 
-            // Get seed point prediction
-            val seedPoint = seedPredictor.predictSeed(bitmap, intArrayOf(roi.xMin, roi.xMax, roi.yMin, roi.yMax))
-            val scaledX = seedPoint[0][0] * (roi.xMax - roi.xMin) + roi.xMin
-            val scaledY = seedPoint[0][1] * (roi.yMax - roi.yMin) + roi.yMin
+            // Get seed point prediction using the MRISequence overload
+            val seedPointArray = seedPredictor.predictSeed(mriSequence, listOf(roi))
+            val seedPoint = seedPointArray.firstOrNull() ?: Pair(roi.xMin + (roi.xMax - roi.xMin) / 2, roi.yMin + (roi.yMax - roi.yMin) / 2)
             
             seedPoints.add(SeedPoint.newBuilder()
-                .setX(scaledX.toInt())
-                .setY(scaledY.toInt())
+                .setX(seedPoint.first)
+                .setY(seedPoint.second)
                 .build())
         }
 

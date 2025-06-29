@@ -42,11 +42,11 @@
             android:theme="@style/Theme.AppCompat.Light.NoActionBar"
             />
 
-        <activity android:name=".Screen.ResultsScreen"
-            android:exported="true"
-            android:theme="@style/Theme.AppCompat.Light.NoActionBar"
-            android:hardwareAccelerated="true"
-            />
+<!--        <activity android:name=".Screen.ResultsScreen"-->
+<!--            android:exported="true"-->
+<!--            android:theme="@style/Theme.AppCompat.Light.NoActionBar"-->
+<!--            android:hardwareAccelerated="true"-->
+<!--            />-->
 
         <!-- SplashActivity should be the ONLY Launcher Activity -->
         <activity
@@ -60,11 +60,11 @@
         </activity>
 
 
-        <activity android:name=".Screen.ModelScreen"
-            android:exported="true"
-            android:theme="@style/Theme.AppCompat.Light.NoActionBar"
-            android:hardwareAccelerated="true"
-            />
+<!--        <activity android:name=".Screen.ModelScreen"-->
+<!--            android:exported="true"-->
+<!--            android:theme="@style/Theme.AppCompat.Light.NoActionBar"-->
+<!--            android:hardwareAccelerated="true"-->
+<!--            />-->
 
 
         <!-- MainActivity should NOT have the Launcher category -->
