@@ -27,6 +27,7 @@ import com.example.demoapp.Model.MRISequence
 import com.example.demoapp.Model.ROI
 import com.example.demoapp.R
 import com.example.demoapp.Utils.FileManager
+import com.example.demoapp.Utils.GpuDelegateHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -41,12 +42,10 @@ class RoiScreen : AppCompatActivity() {
     private lateinit var nextImage: ImageButton
     private lateinit var loadingOverlay: RelativeLayout
     private lateinit var predictButton: Button
-    private lateinit var optionsButton: ImageButton
     private lateinit var backButton: ImageButton
-    private lateinit var optionsPopup: LinearLayout
     private lateinit var btnParallel: Button
     private lateinit var btnSerial: Button
-    private lateinit var btnGrpc: Button
+    private lateinit var btnGpu: Button
     private lateinit var mainContent: RelativeLayout
     private lateinit var patientName: TextView
     private lateinit var confirmButton: Button
@@ -59,7 +58,7 @@ class RoiScreen : AppCompatActivity() {
     private lateinit var mriSequence: MRISequence
     private var selectedMode: String = "Parallel"
 
-    private var roiList : List<ROI> = emptyList()
+    private var roiList: List<ROI> = emptyList()
     private val context = this
 
     private val storagePermissionLauncher = registerForActivityResult(
@@ -79,7 +78,7 @@ class RoiScreen : AppCompatActivity() {
 
         parallelRoiPredictor = ParallelRoiPredictor(context = context)
         sequentialRoiPredictor = SequentialRoiPredictor(context = context)
-        roiPredictor = parallelRoiPredictor // Default to Parallel mode
+        roiPredictor = parallelRoiPredictor
 
         if (FileManager.getAllFiles().isEmpty()) {
             Toast.makeText(this, "No images loaded! Returning to upload screen.", Toast.LENGTH_LONG).show()
@@ -137,6 +136,14 @@ class RoiScreen : AppCompatActivity() {
 
     private fun initializeApp() {
         initializeViews()
+
+        Log.d("RoiScreen", "GPU Delegate available: ${GpuDelegateHelper().isGpuDelegateAvailable}")
+        if (!GpuDelegateHelper().isGpuDelegateAvailable) {
+            btnGpu.visibility = View.GONE
+        }
+
+        setMode("Parallel")
+
         if (FileManager.getAllFiles().isNotEmpty()) {
             setupImageNavigation()
             loadCurrentImage()
@@ -146,9 +153,7 @@ class RoiScreen : AppCompatActivity() {
             predictButton.isEnabled = false
         }
         setupPredictButton()
-        setupOptionsPopup()
         setupBackButton()
-        setupPopupCloseOnBackground()
         setupConfirmButton()
     }
 
@@ -159,55 +164,29 @@ class RoiScreen : AppCompatActivity() {
         nextImage = findViewById(R.id.next_image)
         loadingOverlay = findViewById(R.id.loading_overlay)
         predictButton = findViewById(R.id.predict_button)
-        predictButton.text = "Predict ROI"
-        optionsButton = findViewById(R.id.options_button)
         backButton = findViewById(R.id.back_button)
         mainContent = findViewById(R.id.main_content)
-        optionsPopup = findViewById(R.id.options_popup)
         btnParallel = findViewById(R.id.btn_parallel)
         btnSerial = findViewById(R.id.btn_serial)
-        btnGrpc = findViewById(R.id.btn_grpc)
+        btnGpu = findViewById(R.id.btn_gpu)
         patientName = findViewById(R.id.patient_name)
         confirmButton = findViewById(R.id.confirm_roi_button)
-        confirmButton.text = "Confirm Roi"
+        confirmButton.text = "Confirm ROI"
         customizeButton = findViewById(R.id.customize_button)
+
+        btnParallel.setOnClickListener { setMode("Parallel") }
+        btnSerial.setOnClickListener { setMode("Serial") }
     }
 
-    private fun setupOptionsPopup() {
-        optionsButton.setOnClickListener {
-            optionsPopup.visibility = if (optionsPopup.visibility == View.VISIBLE) View.GONE else View.VISIBLE
-        }
-        btnParallel.setOnClickListener {
-            selectedMode = "Parallel"
-            Toast.makeText(this, "Parallel mode selected", Toast.LENGTH_SHORT).show()
-            optionsPopup.visibility = View.GONE
-            roiPredictor = parallelRoiPredictor
-        }
-        btnSerial.setOnClickListener {
-            selectedMode = "Serial"
-            Toast.makeText(this, "Serial mode selected", Toast.LENGTH_SHORT).show()
-            optionsPopup.visibility = View.GONE
-            roiPredictor = parallelRoiPredictor
-        }
-    }
+    private fun setMode(mode: String) {
+        selectedMode = mode
+        roiPredictor = if (mode == "Parallel") parallelRoiPredictor else sequentialRoiPredictor
 
-    private fun setupPopupCloseOnBackground() {
-        mainContent.setOnTouchListener { _, event ->
-            if (event.action == MotionEvent.ACTION_DOWN && optionsPopup.visibility == View.VISIBLE) {
-                val location = IntArray(2)
-                optionsPopup.getLocationOnScreen(location)
-                val x = event.rawX.toInt()
-                val y = event.rawY.toInt()
-                val lx = location[0]
-                val ly = location[1]
-                val w = optionsPopup.width
-                val h = optionsPopup.height
-                if (!(x in lx..(lx + w) && y in ly..(ly + h))) {
-                    optionsPopup.visibility = View.GONE
-                }
-            }
-            false
-        }
+        btnParallel.setBackgroundColor(Color.parseColor(if (mode == "Parallel") "#B0BEC5" else "#455A64"))
+        btnParallel.setTextColor(Color.parseColor(if (mode == "Parallel") "#000000" else "#FFFFFF"))
+
+        btnSerial.setBackgroundColor(Color.parseColor(if (mode == "Serial") "#B0BEC5" else "#455A64"))
+        btnSerial.setTextColor(Color.parseColor(if (mode == "Serial") "#000000" else "#FFFFFF"))
     }
 
     private fun setupBackButton() {
@@ -221,12 +200,14 @@ class RoiScreen : AppCompatActivity() {
 
     private fun setupPredictButton() {
         predictButton.setOnClickListener {
+            //btnGpu.visibility = View.GONE
+            //btnParallel.visibility = View.GONE
+            //btnSerial.visibility = View.GONE
+
             showLoadingState()
             CoroutineScope(Dispatchers.IO).launch {
                 val startTime = System.currentTimeMillis()
-
                 roiList = roiPredictor.predictRoi(mriSequence)
-
                 val endTime = System.currentTimeMillis()
                 val timeTaken = endTime - startTime
 
@@ -240,8 +221,8 @@ class RoiScreen : AppCompatActivity() {
                 }
             }
         }
-
     }
+
     private fun setupConfirmButton() {
         confirmButton.setOnClickListener {
             val intent = Intent(this, SeedScreen::class.java)
@@ -289,11 +270,6 @@ class RoiScreen : AppCompatActivity() {
     }
 
     private fun drawRoiRectangleOnBitmap(originalBitmap: Bitmap, roi: ROI): Bitmap {
-        val x1 = roi.xMin;
-        val y1 = roi.yMin;
-        val x2 = roi.xMax;
-        val y2 = roi.yMax;
-
         val mutableBitmap = originalBitmap.copy(Bitmap.Config.ARGB_8888, true)
         val canvas = Canvas(mutableBitmap)
         val paint = Paint().apply {
@@ -301,7 +277,7 @@ class RoiScreen : AppCompatActivity() {
             style = Paint.Style.STROKE
             strokeWidth = 4f
         }
-        canvas.drawRect(x1.toFloat(), y1.toFloat(), x2.toFloat(), y2.toFloat(), paint)
+        canvas.drawRect(roi.xMin.toFloat(), roi.yMin.toFloat(), roi.xMax.toFloat(), roi.yMax.toFloat(), paint)
         return mutableBitmap
     }
 
@@ -330,13 +306,4 @@ class RoiScreen : AppCompatActivity() {
         prevImage.visibility = if (currentIndex > 1) ImageButton.VISIBLE else ImageButton.INVISIBLE
         nextImage.visibility = if (currentIndex < totalFiles) ImageButton.VISIBLE else ImageButton.INVISIBLE
     }
-
-
-//    override fun onDestroy() {
-//        super.onDestroy()
-//        val shouldCleanup = intent.getBooleanExtra("shouldCleanup", true)
-//        if (shouldCleanup) {
-//            FileManager.cleanupTemporary()
-//        }
-//    }
 }

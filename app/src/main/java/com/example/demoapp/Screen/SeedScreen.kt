@@ -13,7 +13,6 @@ import android.os.Bundle
 import android.os.Environment
 import android.provider.Settings
 import android.util.Log
-import android.view.MotionEvent
 import android.view.View
 import android.widget.*
 import androidx.activity.result.contract.ActivityResultContracts
@@ -27,6 +26,7 @@ import com.example.demoapp.Model.MRISequence
 import com.example.demoapp.Model.ROI
 import com.example.demoapp.R
 import com.example.demoapp.Utils.FileManager
+import com.example.demoapp.Utils.GpuDelegateHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -41,27 +41,26 @@ class SeedScreen : AppCompatActivity() {
     private lateinit var nextImage: ImageButton
     private lateinit var loadingOverlay: RelativeLayout
     private lateinit var predictButton: Button
-    private lateinit var optionsButton: ImageButton
     private lateinit var backButton: ImageButton
-    private lateinit var optionsPopup: LinearLayout
     private lateinit var btnParallel: Button
     private lateinit var btnSerial: Button
-    private lateinit var btnGrpc: Button
+    private lateinit var btnGpu: Button
     private lateinit var mainContent: RelativeLayout
     private lateinit var patientName: TextView
     private lateinit var confirmButton: Button
     private lateinit var customizeButton: Button
+
+    private lateinit var seedPredictor: ISeedPrecitor
+    private lateinit var parallelSeedPredictor: ParallelSeedPredictor
+    private lateinit var sequentialSeedPredictor: SequentialSeedPredictor
+
     private lateinit var mriSequence: MRISequence
     private var selectedMode: String = "Parallel"
     private var roiTimeTaken: Long = 0
 
-
-    private var roiList : List<ROI> = emptyList()
-    private var seedList : Array<Pair<Int, Int>> = emptyArray()
+    private var roiList: List<ROI> = emptyList()
+    private var seedList: Array<Pair<Int, Int>> = emptyArray()
     private val context = this
-    private lateinit var seedPredictor : ISeedPrecitor
-    private lateinit var parallelSeedPredictor: ParallelSeedPredictor
-    private lateinit var sequentialSeedPredictor: SequentialSeedPredictor
 
     private val storagePermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -77,11 +76,12 @@ class SeedScreen : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.shared_roi_seed_screen)
+
         parallelSeedPredictor = ParallelSeedPredictor(context)
         sequentialSeedPredictor = SequentialSeedPredictor(context)
-        seedPredictor = parallelSeedPredictor // Default to Parallel mode
-        roiTimeTaken = intent.getLongExtra("roi_time_taken", 0)
+        seedPredictor = parallelSeedPredictor
 
+        roiTimeTaken = intent.getLongExtra("roi_time_taken", 0)
         @Suppress("UNCHECKED_CAST")
         intent.getSerializableExtra("roi_list")?.let { extra ->
             val incomingRoiList = extra as? List<ROI>
@@ -102,7 +102,7 @@ class SeedScreen : AppCompatActivity() {
         val bitmaps = FileManager.getAllFiles().mapNotNull { file ->
             FileManager.getProcessedImage(this, file)
         }
-        mriSequence = MRISequence(images = bitmaps, metadata = HashMap())
+        mriSequence = MRISequence(images = bitmaps, metadata = FileManager.getDicomMetadata())
 
         if (checkStoragePermission()) {
             initializeApp()
@@ -143,6 +143,14 @@ class SeedScreen : AppCompatActivity() {
 
     private fun initializeApp() {
         initializeViews()
+
+        if (!GpuDelegateHelper().isGpuDelegateAvailable) {
+            btnGpu.visibility = View.GONE
+        }
+
+        setMode("Parallel")
+        predictButton.text = "Predict Seed"
+
         if (FileManager.getAllFiles().isNotEmpty()) {
             setupImageNavigation()
             loadCurrentImage()
@@ -152,9 +160,7 @@ class SeedScreen : AppCompatActivity() {
             predictButton.isEnabled = false
         }
         setupPredictButton()
-        setupOptionsPopup()
         setupBackButton()
-        setupPopupCloseOnBackground()
         setupConfirmButton()
     }
 
@@ -165,24 +171,47 @@ class SeedScreen : AppCompatActivity() {
         nextImage = findViewById(R.id.next_image)
         loadingOverlay = findViewById(R.id.loading_overlay)
         predictButton = findViewById(R.id.predict_button)
-        predictButton.text = "Predict Seed"
-        optionsButton = findViewById(R.id.options_button)
         backButton = findViewById(R.id.back_button)
         mainContent = findViewById(R.id.main_content)
-        optionsPopup = findViewById(R.id.options_popup)
         btnParallel = findViewById(R.id.btn_parallel)
         btnSerial = findViewById(R.id.btn_serial)
-        btnGrpc = findViewById(R.id.btn_grpc)
+        btnGpu = findViewById(R.id.btn_gpu)
         patientName = findViewById(R.id.patient_name)
         confirmButton = findViewById(R.id.confirm_roi_button)
         confirmButton.text = "Confirm Seed"
         customizeButton = findViewById(R.id.customize_button)
 
+        btnParallel.setOnClickListener { setMode("Parallel") }
+        btnSerial.setOnClickListener { setMode("Sequential") }
     }
 
-    // Only use ROI received from RoiScreen, and predict SEED using it
+    private fun setMode(mode: String) {
+        selectedMode = mode
+        seedPredictor = if (mode == "Parallel") parallelSeedPredictor else sequentialSeedPredictor
+
+        btnParallel.setBackgroundColor(Color.parseColor(if (mode == "Parallel") "#B0BEC5" else "#455A64"))
+        btnParallel.setTextColor(Color.parseColor(if (mode == "Parallel") "#000000" else "#FFFFFF"))
+
+        btnSerial.setBackgroundColor(Color.parseColor(if (mode == "Sequential") "#B0BEC5" else "#455A64"))
+        btnSerial.setTextColor(Color.parseColor(if (mode == "Sequential") "#000000" else "#FFFFFF"))
+    }
+
+    private fun setupBackButton() {
+        backButton.setOnClickListener {
+            val intent = Intent(this, RoiScreen::class.java)
+            intent.putExtra("shouldCleanup", false)
+            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            startActivity(intent)
+            finish()
+        }
+    }
+
     private fun setupPredictButton() {
         predictButton.setOnClickListener {
+            //btnGpu.visibility = View.GONE
+            //btnParallel.visibility = View.GONE
+            //btnSerial.visibility = View.GONE
+
             if (roiList.isEmpty()) {
                 Toast.makeText(this, "No ROI received! Please return to ROI screen.", Toast.LENGTH_LONG).show()
                 return@setOnClickListener
@@ -214,7 +243,6 @@ class SeedScreen : AppCompatActivity() {
     private fun setupConfirmButton() {
         confirmButton.setOnClickListener {
             val seedTimeTaken = patientName.text.toString().replace("Time Taken: ", "").replace(" ms", "").toLong()
-
             val intent = Intent(this, FuzzyAndResultScreen::class.java).apply {
                 putExtra("seed_list", seedList)
                 putExtra("roi_list", ArrayList(roiList))
@@ -263,13 +291,7 @@ class SeedScreen : AppCompatActivity() {
         updateNavigationButtons()
     }
 
-
     private fun drawNormalizedRoiOnly(bitmap: Bitmap, roi: ROI): Bitmap {
-        val x1 = roi.xMin.toFloat()
-        val y1 = roi.yMin.toFloat()
-        val x2 = roi.xMax.toFloat()
-        val y2 = roi.yMax.toFloat()
-
         val mutableBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true)
         val canvas = Canvas(mutableBitmap)
         val paint = Paint().apply {
@@ -277,7 +299,7 @@ class SeedScreen : AppCompatActivity() {
             style = Paint.Style.STROKE
             strokeWidth = 4f
         }
-        canvas.drawRect(x1, y1, x2, y2, paint)
+        canvas.drawRect(roi.xMin.toFloat(), roi.yMin.toFloat(), roi.xMax.toFloat(), roi.yMax.toFloat(), paint)
         return mutableBitmap
     }
 
@@ -286,34 +308,21 @@ class SeedScreen : AppCompatActivity() {
         roi: ROI,
         seed: Pair<Int, Int>
     ): Bitmap {
-
-        val x1 = roi.xMin.toFloat()
-        val y1 = roi.yMin.toFloat()
-        val x2 = roi.xMax.toFloat()
-        val y2 = roi.yMax.toFloat()
-
         val mutableBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true)
         val canvas = Canvas(mutableBitmap)
 
-        // Draw ROI
         val roiPaint = Paint().apply {
             color = Color.RED
             style = Paint.Style.STROKE
             strokeWidth = 4f
         }
-        canvas.drawRect(x1, y1, x2, y2, roiPaint)
-
-        // Draw seed inside ROI (normalized to ROI dimensions)
-        val seedX = seed.first.toFloat()
-        val seedY = seed.second.toFloat()
-
-        Log.d("SeedScreen", "Drawing seed at: ($seedX, $seedY) within ROI: ($x1, $y1, $x2, $y2)")
+        canvas.drawRect(roi.xMin.toFloat(), roi.yMin.toFloat(), roi.xMax.toFloat(), roi.yMax.toFloat(), roiPaint)
 
         val seedPaint = Paint().apply {
             color = Color.YELLOW
             style = Paint.Style.FILL
         }
-        canvas.drawCircle(seedX, seedY, 6f, seedPaint)
+        canvas.drawCircle(seed.first.toFloat(), seed.second.toFloat(), 6f, seedPaint)
 
         return mutableBitmap
     }
@@ -343,58 +352,4 @@ class SeedScreen : AppCompatActivity() {
         prevImage.visibility = if (currentIndex > 1) ImageButton.VISIBLE else ImageButton.INVISIBLE
         nextImage.visibility = if (currentIndex < totalFiles) ImageButton.VISIBLE else ImageButton.INVISIBLE
     }
-
-    private fun setupOptionsPopup() {
-        optionsButton.setOnClickListener {
-            optionsPopup.visibility = if (optionsPopup.visibility == View.VISIBLE) View.GONE else View.VISIBLE
-        }
-        btnParallel.setOnClickListener {
-            selectedMode = "Parallel"
-            Toast.makeText(this, "Parallel mode selected", Toast.LENGTH_SHORT).show()
-            optionsPopup.visibility = View.GONE
-            seedPredictor = parallelSeedPredictor
-        }
-        btnSerial.setOnClickListener {
-            selectedMode = "Sequential"
-            Toast.makeText(this, "Sequential mode selected", Toast.LENGTH_SHORT).show()
-            optionsPopup.visibility = View.GONE
-            seedPredictor = sequentialSeedPredictor
-        }
-    }
-
-    private fun setupPopupCloseOnBackground() {
-        mainContent.setOnTouchListener { _, event ->
-            if (event.action == MotionEvent.ACTION_DOWN && optionsPopup.visibility == View.VISIBLE) {
-                val location = IntArray(2)
-                optionsPopup.getLocationOnScreen(location)
-                val x = event.rawX.toInt()
-                val y = event.rawY.toInt()
-                val lx = location[0]
-                val ly = location[1]
-                val w = optionsPopup.width
-                val h = optionsPopup.height
-                if (!(x in lx..(lx + w) && y in ly..(ly + h))) {
-                    optionsPopup.visibility = View.GONE
-                }
-            }
-            false
-        }
-    }
-
-    private fun setupBackButton() {
-        backButton.setOnClickListener {
-            val intent = Intent(this, RoiScreen::class.java)
-            intent.putExtra("shouldCleanup", false)
-            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-            startActivity(intent)
-            finish()
-        }
-    }
-
-    /*
-    override fun onDestroy() {
-        super.onDestroy()
-        FileManager.cleanupTemporary()
-    }
-     */
 }

@@ -20,6 +20,9 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.example.demoapp.Core.Interfaces.IFuzzySystem
 import com.example.demoapp.Core.ParallelFuzzySystem
+import com.example.demoapp.Core.ParallelRoiPredictor
+import com.example.demoapp.Core.ParallelSeedPredictor
+import com.example.demoapp.Core.SerialFuzzySystem
 import com.example.demoapp.Model.CancerVolume
 import com.example.demoapp.Model.MRISequence
 import com.example.demoapp.Model.ROI
@@ -32,7 +35,10 @@ import kotlinx.coroutines.withContext
 
 @RequiresApi(Build.VERSION_CODES.N)
 class FuzzyAndResultScreen : AppCompatActivity() {
-    // Fuzzy Layout Views
+
+    // Views
+    private lateinit var btnParallel: Button
+    private lateinit var btnSerial: Button
     private lateinit var fuzzyMriImage: ImageView
     private lateinit var fuzzyAlphaCutValue: TextView
     private lateinit var fuzzyAlphaCutSlider: SeekBar
@@ -43,8 +49,6 @@ class FuzzyAndResultScreen : AppCompatActivity() {
     private lateinit var fuzzyCalculateVolumeButton: Button
     private lateinit var fuzzyPatientName: TextView
     private lateinit var fuzzyBackButton: ImageButton
-
-    // Results Layout Views
     private lateinit var resultsMriImage: ImageView
     private lateinit var resultsImageCount: TextView
     private lateinit var resultsPrevImage: ImageButton
@@ -53,22 +57,25 @@ class FuzzyAndResultScreen : AppCompatActivity() {
     private lateinit var resultsPatientName: TextView
     private lateinit var resultsRecalculateButton: Button
     private lateinit var resultsBackButton: ImageButton
-
-    // Common Views
     private lateinit var loadingOverlay: RelativeLayout
     private lateinit var fuzzyLayout: RelativeLayout
     private lateinit var resultsLayout: RelativeLayout
 
+    // Data
     private var fuzzyCalculationTime: Long = 0
     private var currentAlphaCutValue: Float = 50.00f
     private var roiTimeTaken: Long = 0
     private var seedTimeTaken: Long = 0
     private lateinit var cancerVolume: CancerVolume
     private lateinit var mriSequence: MRISequence
-    private lateinit var roiList: List<ROI>
-    private lateinit var seedList: Array<Pair<Int, Int>>
-    private val fuzzyHighlightMap: MutableMap<Int, Boolean> = mutableMapOf()
-    private var fuzzySystem: IFuzzySystem = ParallelFuzzySystem()
+    private var roiList: List<ROI> = emptyList()
+    private var seedList: Array<Pair<Int, Int>> = emptyArray()
+    private lateinit var parallelFuzzySystem: ParallelFuzzySystem
+    private lateinit var sequentialFuzzySystem: SerialFuzzySystem
+    private var fuzzySystem: IFuzzySystem? = null
+    private var selectedMode: String = "Parallel"
+    private val roiPredictor = ParallelRoiPredictor(this)
+    private val seedPredictor = ParallelSeedPredictor(this)
 
     private val storagePermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -84,41 +91,26 @@ class FuzzyAndResultScreen : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.fuzzy_and_result_screen)
+
         roiTimeTaken = intent.getLongExtra("roi_time_taken", 0)
         seedTimeTaken = intent.getLongExtra("seed_time_taken", 0)
 
-        @Suppress("UNCHECKED_CAST")
-        intent.getSerializableExtra("roi_list")?.let { extra ->
-            val incomingRoiList = extra as? List<ROI>
-            if (incomingRoiList != null) {
-                roiList = incomingRoiList
-            } else {
-                roiList = emptyList()
-            }
-        }
-        @Suppress("UNCHECKED_CAST")
-        intent.getSerializableExtra("seed_list")?.let { extra ->
-            val incomingSeedList = extra as? Array<Pair<Int, Int>>
-            if (incomingSeedList != null) {
-                seedList = incomingSeedList
-            } else {
-                seedList = emptyArray()
-            }
-        }
-
         if (FileManager.getAllFiles().isEmpty()) {
             Toast.makeText(this, "No images loaded! Returning to upload screen.", Toast.LENGTH_LONG).show()
-            val intent = Intent(this, UploadScreen::class.java)
-            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            startActivity(intent)
+            startActivity(Intent(this, UploadScreen::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            })
             finish()
             return
         }
 
-        val bitmaps = FileManager.getAllFiles().mapNotNull { file ->
-            FileManager.getProcessedImage(this, file)
+        val bitmaps = FileManager.getAllFiles().mapNotNull {
+            FileManager.getProcessedImage(this, it)
         }
         mriSequence = MRISequence(images = bitmaps, metadata = FileManager.getDicomMetadata())
+
+        parallelFuzzySystem = ParallelFuzzySystem()
+        sequentialFuzzySystem = SerialFuzzySystem()
 
         if (checkStoragePermission()) {
             initializeApp()
@@ -131,9 +123,7 @@ class FuzzyAndResultScreen : AppCompatActivity() {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             Environment.isExternalStorageManager()
         } else {
-            ContextCompat.checkSelfPermission(
-                this, Manifest.permission.READ_EXTERNAL_STORAGE
-            ) == PackageManager.PERMISSION_GRANTED
+            ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
         }
     }
 
@@ -159,6 +149,7 @@ class FuzzyAndResultScreen : AppCompatActivity() {
 
     private fun initializeApp() {
         initializeViews()
+        setMode("Parallel")
         setupImageNavigation()
         setupAlphaCutControl()
         setupCalculateButton()
@@ -169,7 +160,6 @@ class FuzzyAndResultScreen : AppCompatActivity() {
     }
 
     private fun initializeViews() {
-        // Fuzzy Layout Views
         fuzzyLayout = findViewById(R.id.fuzzy_layout)
         fuzzyMriImage = findViewById(R.id.fuzzy_mri_image)
         fuzzyAlphaCutValue = findViewById(R.id.fuzzy_alpha_cut_value)
@@ -181,8 +171,8 @@ class FuzzyAndResultScreen : AppCompatActivity() {
         fuzzyCalculateVolumeButton = findViewById(R.id.fuzzy_calculate_volume_button)
         fuzzyPatientName = findViewById(R.id.fuzzy_patient_name)
         fuzzyBackButton = findViewById(R.id.fuzzy_back_button)
-
-        // Results Layout Views
+        btnParallel = findViewById(R.id.btn_parallel)
+        btnSerial = findViewById(R.id.btn_serial)
         resultsLayout = findViewById(R.id.results_layout)
         resultsMriImage = findViewById(R.id.results_mri_image)
         resultsImageCount = findViewById(R.id.results_image_count)
@@ -192,10 +182,13 @@ class FuzzyAndResultScreen : AppCompatActivity() {
         resultsPatientName = findViewById(R.id.results_patient_name)
         resultsRecalculateButton = findViewById(R.id.results_recalculate_button)
         resultsBackButton = findViewById(R.id.results_back_button)
-
-        // Common Views
         loadingOverlay = findViewById(R.id.loading_overlay)
+
+        resultsRecalculateButton.setOnClickListener {
+            performRecalculation()
+        }
     }
+
     private fun showFuzzyLayout() {
         fuzzyLayout.visibility = View.VISIBLE
         resultsLayout.visibility = View.GONE
@@ -206,6 +199,17 @@ class FuzzyAndResultScreen : AppCompatActivity() {
         resultsLayout.visibility = View.VISIBLE
     }
 
+    private fun setMode(mode: String) {
+        selectedMode = mode
+        fuzzySystem = if (mode == "Parallel") parallelFuzzySystem else sequentialFuzzySystem
+
+        btnParallel.setBackgroundColor(Color.parseColor(if (mode == "Parallel") "#B0BEC5" else "#455A64"))
+        btnParallel.setTextColor(Color.parseColor(if (mode == "Parallel") "#000000" else "#FFFFFF"))
+
+        btnSerial.setBackgroundColor(Color.parseColor(if (mode == "Serial") "#B0BEC5" else "#455A64"))
+        btnSerial.setTextColor(Color.parseColor(if (mode == "Serial") "#000000" else "#FFFFFF"))
+    }
+
     private fun setupCalculateButton() {
         fuzzyCalculateButton.setOnClickListener {
             showLoadingState()
@@ -213,23 +217,47 @@ class FuzzyAndResultScreen : AppCompatActivity() {
 
             CoroutineScope(Dispatchers.Default).launch {
                 val alphaCut = currentAlphaCutValue
-
-                cancerVolume = fuzzySystem.estimateVolume(mriSequence, roiList, seedList.toList(), alphaCut)
+                cancerVolume = fuzzySystem!!.estimateVolume(mriSequence, roiList, seedList.toList(), alphaCut)
                 val elapsed = System.currentTimeMillis() - startTime
 
                 withContext(Dispatchers.Main) {
                     hideLoadingState()
-                    val fuzzyTimeTaken = elapsed
-                    val totalTime = roiTimeTaken + seedTimeTaken + fuzzyTimeTaken
+                    val totalTime = roiTimeTaken + seedTimeTaken + elapsed
 
                     resultsTumorVolume.text = "Tumor Volume: ${cancerVolume.volume} mm³"
-                    resultsPatientName.text = """
-        Total Time: ${totalTime}ms
-    """.trimIndent()
+                    resultsPatientName.text = "Total Time: ${totalTime}ms"
 
                     showResultsLayout()
                     loadCurrentResultsImage()
                 }
+            }
+        }
+    }
+
+    private fun performRecalculation() {
+        showLoadingState()
+
+        parallelFuzzySystem = ParallelFuzzySystem()
+        sequentialFuzzySystem = SerialFuzzySystem()
+        fuzzySystem = if (selectedMode == "Parallel") parallelFuzzySystem else sequentialFuzzySystem
+
+        CoroutineScope(Dispatchers.Default).launch {
+            val alphaCut = currentAlphaCutValue
+            val startTime = System.currentTimeMillis()
+
+            roiList = roiPredictor.predictRoi(mriSequence)
+            seedList = seedPredictor.predictSeed(mriSequence, roiList)
+
+            cancerVolume = fuzzySystem!!.estimateVolume(mriSequence, roiList, seedList.toList(), alphaCut)
+
+            val elapsed = System.currentTimeMillis() - startTime
+            val totalTime = roiTimeTaken + seedTimeTaken + elapsed
+
+            withContext(Dispatchers.Main) {
+                hideLoadingState()
+                resultsTumorVolume.text = "Tumor Volume: ${cancerVolume.volume} mm³"
+                resultsPatientName.text = "Total Time: ${totalTime}ms"
+                loadCurrentResultsImage()
             }
         }
     }

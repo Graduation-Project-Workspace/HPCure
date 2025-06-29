@@ -18,7 +18,8 @@
             android:layout_width="match_parent"
             android:layout_height="56dp"
             android:background="#1E2324"
-            android:elevation="4dp">
+            android:elevation="4dp"
+            android:layout_alignParentTop="true">
 
             <ImageButton
                 android:id="@+id/back_button"
@@ -41,68 +42,7 @@
                 android:text="Tumor Track"
                 android:textSize="20sp"
                 android:textColor="#FFFFFF" />
-
-            <ImageButton
-                android:id="@+id/options_button"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:layout_alignParentEnd="true"
-                android:layout_centerVertical="true"
-                android:layout_marginEnd="16dp"
-                android:background="@android:color/transparent"
-                android:padding="12dp"
-                android:contentDescription="Options"
-                app:srcCompat="@drawable/ic_more_vert"
-                app:tint="#FFFFFF" />
         </RelativeLayout>
-
-        <!-- ▼▼▼ POPUP CONTAINER ▼▼▼ -->
-        <LinearLayout
-            android:id="@+id/options_popup"
-            android:layout_width="180dp"
-            android:layout_height="wrap_content"
-            android:layout_alignParentEnd="true"
-            android:layout_below="@id/header"
-            android:layout_marginEnd="24dp"
-            android:layout_marginTop="16dp"
-            android:orientation="vertical"
-            android:background="@drawable/rounded_bg"
-            android:elevation="12dp"
-            android:visibility="gone"
-            android:padding="12dp"
-            android:clickable="true"
-            android:focusable="true">
-
-            <Button
-                android:id="@+id/btn_parallel"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Parallel"
-                android:background="@android:color/transparent"
-                android:textColor="#222"
-                android:textStyle="bold" />
-
-            <Button
-                android:id="@+id/btn_serial"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Serial"
-                android:layout_marginTop="4dp"
-                android:background="@android:color/transparent"
-                android:textColor="#222"
-                android:textStyle="bold" />
-
-            <Button
-                android:id="@+id/btn_grpc"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="gRPC"
-                android:layout_marginTop="4dp"
-                android:background="@android:color/transparent"
-                android:textColor="#222"
-                android:textStyle="bold" />
-        </LinearLayout>
-        <!-- ▲▲▲ POPUP END ▲▲▲ -->
 
         <!-- Content Container -->
         <RelativeLayout
@@ -122,69 +62,118 @@
                 android:textSize="18sp"
                 android:textColor="#FFFFFF" />
 
-            <!-- Image Container -->
-            <RelativeLayout
-                android:id="@+id/image_slider"
-                android:layout_width="match_parent"
-                android:layout_height="0dp"
-                android:layout_below="@id/patient_name"
-                android:layout_above="@id/button_group"
-                android:layout_marginTop="24dp"
-                android:layout_marginBottom="24dp"
-                android:layout_marginHorizontal="16dp"
-                android:background="@drawable/image_container_background">
+            <!-- GPU Button -->
 
-                <TextView
-                    android:id="@+id/image_count"
+            <!-- Image Container + Mode Buttons -->
+            <Button
+                android:id="@+id/btn_gpu"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_below="@id/patient_name"
+                android:layout_alignParentEnd="true"
+                android:layout_marginTop="-34dp"
+                android:layout_marginEnd="37dp"
+                android:background="@drawable/button_background"
+                android:text="GPU"
+                android:textColor="#222"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:id="@+id/image_slider_container"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_below="@id/patient_name"
+                android:layout_centerHorizontal="true"
+                android:layout_marginTop="24dp"
+                android:orientation="vertical">
+
+                <!-- Image Row -->
+                <LinearLayout
+                    android:id="@+id/image_slider"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="1/1"
-                    android:textSize="16sp"
-                    android:textColor="#000000"
-                    android:layout_centerHorizontal="true"
-                    android:layout_marginTop="12dp" />
-
-                <ImageView
-                    android:id="@+id/mri_image"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:layout_below="@id/image_count"
-                    android:layout_above="@id/navigation_area"
-                    android:layout_marginHorizontal="16dp"
-                    android:layout_marginVertical="12dp"
-                    android:scaleType="fitCenter"
-                    android:adjustViewBounds="true" />
-
-                <RelativeLayout
-                    android:id="@+id/navigation_area"
-                    android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:layout_alignParentBottom="true"
-                    android:layout_marginBottom="8dp">
+                    android:orientation="horizontal"
+                    android:background="@drawable/image_container_background"
+                    android:padding="8dp">
 
                     <ImageButton
                         android:id="@+id/prev_image"
-                        android:layout_width="48dp"
-                        android:layout_height="48dp"
-                        android:layout_alignParentStart="true"
-                        android:layout_marginStart="16dp"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:layout_gravity="center_vertical"
                         android:background="@android:color/transparent"
                         app:srcCompat="@drawable/ic_left_arrow_vector"
-                        app:tint="#000000" />
+                        app:tint="#000000"
+                        android:visibility="gone" />
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:gravity="center_horizontal"
+                        android:layout_marginHorizontal="8dp">
+
+                        <TextView
+                            android:id="@+id/image_count"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="1/5"
+                            android:textSize="16sp"
+                            android:textColor="#000000"
+                            android:layout_marginBottom="8dp" />
+
+                        <ImageView
+                            android:id="@+id/mri_image"
+                            android:layout_width="300dp"
+                            android:layout_height="wrap_content"
+                            android:adjustViewBounds="true"
+                            android:maxHeight="400dp"
+                            android:layout_marginBottom="20dp"
+                            android:scaleType="fitCenter" />
+                    </LinearLayout>
 
                     <ImageButton
                         android:id="@+id/next_image"
-                        android:layout_width="48dp"
-                        android:layout_height="48dp"
-                        android:layout_alignParentEnd="true"
-                        android:layout_marginEnd="16dp"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:layout_gravity="center_vertical"
                         android:background="@android:color/transparent"
                         app:srcCompat="@drawable/ic_right_arrow_vector"
                         app:tint="#000000" />
-                </RelativeLayout>
-            </RelativeLayout>
+                </LinearLayout>
 
-            <!-- ▼▼▼ Button Group Horizontal ▼▼▼ -->
+                <!-- Parallel/Serial Buttons -->
+                <LinearLayout
+                    android:id="@+id/mode_buttons"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_horizontal"
+                    android:orientation="horizontal"
+                    android:layout_marginTop="12dp">
+
+                    <Button
+                        android:id="@+id/btn_parallel"
+                        android:layout_width="120dp"
+                        android:layout_height="40dp"
+                        android:text="Parallel"
+                        android:textStyle="bold"
+                        android:background="@drawable/button_background"
+
+                        android:textColor="#000000" />
+
+                    <Button
+                        android:id="@+id/btn_serial"
+                        android:layout_width="120dp"
+                        android:layout_height="40dp"
+                        android:text="Serial"
+                        android:textStyle="bold"
+                        android:background="@drawable/button_background"
+                        android:textColor="#FFFFFF"
+                        android:layout_marginStart="8dp" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Bottom Action Buttons -->
             <LinearLayout
                 android:id="@+id/button_group"
                 android:layout_width="wrap_content"
@@ -194,7 +183,6 @@
                 android:layout_marginBottom="32dp"
                 android:orientation="horizontal">
 
-                <!-- Left Side: Predict + Customize -->
                 <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -205,7 +193,7 @@
                         android:id="@+id/predict_button"
                         android:layout_width="220dp"
                         android:layout_height="48dp"
-                        android:text=""
+                        android:text="PREDICT ROI"
                         android:textColor="#000000"
                         android:textStyle="bold"
                         android:background="@drawable/button_background"
@@ -222,7 +210,6 @@
                         android:visibility="gone"/>
                 </LinearLayout>
 
-                <!-- Right Side: Confirm ROI -->
                 <Button
                     android:id="@+id/confirm_roi_button"
                     android:layout_width="100dp"
@@ -233,7 +220,6 @@
                     android:background="@drawable/button_background"
                     android:visibility="gone" />
             </LinearLayout>
-            <!-- ▲▲▲ Button Group END ▲▲▲ -->
         </RelativeLayout>
 
         <!-- Loading Overlay -->

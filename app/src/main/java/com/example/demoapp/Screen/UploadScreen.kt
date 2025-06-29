@@ -143,11 +143,22 @@ class UploadScreen : AppCompatActivity() {
     }
 
     private fun showLoading() {
+        loadingOverlay.alpha = 0f
         loadingOverlay.visibility = View.VISIBLE
+        loadingOverlay.animate()
+            .alpha(1f)
+            .setDuration(200)
+            .start()
     }
 
     private fun hideLoading() {
-        loadingOverlay.visibility = View.GONE
+        loadingOverlay.animate()
+            .alpha(0f)
+            .setDuration(200)
+            .withEndAction {
+                loadingOverlay.visibility = View.GONE
+            }
+            .start()
     }
 
     private fun showErrorDialog(message: String) {
