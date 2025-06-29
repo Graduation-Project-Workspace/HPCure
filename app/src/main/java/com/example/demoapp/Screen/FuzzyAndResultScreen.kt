@@ -74,8 +74,8 @@ class FuzzyAndResultScreen : AppCompatActivity() {
     private lateinit var sequentialFuzzySystem: SerialFuzzySystem
     private var fuzzySystem: IFuzzySystem? = null
     private var selectedMode: String = "Parallel"
-    private val roiPredictor = ParallelRoiPredictor(this)
-    private val seedPredictor = ParallelSeedPredictor(this)
+    private lateinit var roiPredictor: ParallelRoiPredictor
+    private lateinit var seedPredictor: ParallelSeedPredictor
 
     private val storagePermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -95,6 +95,23 @@ class FuzzyAndResultScreen : AppCompatActivity() {
         roiTimeTaken = intent.getLongExtra("roi_time_taken", 0)
         seedTimeTaken = intent.getLongExtra("seed_time_taken", 0)
 
+        // Extract roi_list and seed_list from intent
+        @Suppress("UNCHECKED_CAST")
+        intent.getSerializableExtra("roi_list")?.let { extra ->
+            val incomingRoiList = extra as? List<ROI>
+            if (incomingRoiList != null) {
+                roiList = incomingRoiList
+            }
+        }
+
+        @Suppress("UNCHECKED_CAST")
+        intent.getSerializableExtra("seed_list")?.let { extra ->
+            val incomingSeedList = extra as? Array<Pair<Int, Int>>
+            if (incomingSeedList != null) {
+                seedList = incomingSeedList
+            }
+        }
+
         if (FileManager.getAllFiles().isEmpty()) {
             Toast.makeText(this, "No images loaded! Returning to upload screen.", Toast.LENGTH_LONG).show()
             startActivity(Intent(this, UploadScreen::class.java).apply {
@@ -108,6 +125,10 @@ class FuzzyAndResultScreen : AppCompatActivity() {
             FileManager.getProcessedImage(this, it)
         }
         mriSequence = MRISequence(images = bitmaps, metadata = FileManager.getDicomMetadata())
+
+        // Initialize predictors after context is available
+        roiPredictor = ParallelRoiPredictor(this)
+        seedPredictor = ParallelSeedPredictor(this)
 
         parallelFuzzySystem = ParallelFuzzySystem()
         sequentialFuzzySystem = SerialFuzzySystem()
@@ -212,6 +233,16 @@ class FuzzyAndResultScreen : AppCompatActivity() {
 
     private fun setupCalculateButton() {
         fuzzyCalculateButton.setOnClickListener {
+            if (roiList.isEmpty() || seedList.isEmpty()) {
+                Toast.makeText(this, "No ROI or Seed data available!", Toast.LENGTH_LONG).show()
+                return@setOnClickListener
+            }
+            
+            if (fuzzySystem == null) {
+                Toast.makeText(this, "FuzzySystem not initialized!", Toast.LENGTH_LONG).show()
+                return@setOnClickListener
+            }
+            
             showLoadingState()
             val startTime = System.currentTimeMillis()
 
