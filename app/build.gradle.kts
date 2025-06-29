@@ -93,13 +93,8 @@ dependencies {
     // TensorFlow Lite
     implementation("org.tensorflow:tensorflow-lite:2.9.0")
     implementation("org.tensorflow:tensorflow-lite-gpu:2.9.0")
-    implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
+    implementation("org.tensorflow:tensorflow-lite-support:0.4.2")
     implementation("org.tensorflow:tensorflow-lite-select-tf-ops:2.8.0")
-    implementation("org.tensorflow:tensorflow-lite-metadata:0.4.4")
-    
-    // AutoValue for TensorFlow Lite Support
-    compileOnly("com.google.auto.value:auto-value-annotations:1.10.4")
-    annotationProcessor("com.google.auto.value:auto-value:1.10.4")
 
     // DICOM (DCM4CHE)
     implementation("org.dcm4che:dcm4che-core:5.31.2")
