@@ -14,6 +14,7 @@ object FileManager {
     private var dicomFilesUris = mutableListOf<Uri>()
     private var currentIndex = 0
     private lateinit var cacheDir: File
+    private val dicomMetadata = HashMap<String, String>()
 
     fun initialize(context: Context) {
         cacheDir = File(context.cacheDir, "processed_images").apply {
@@ -24,6 +25,8 @@ object FileManager {
     fun loadDirectory(context: Context, uri: Uri): Boolean {
         try {
             dicomFiles.clear()
+            dicomFilesUris.clear()
+            dicomMetadata.clear()
             currentIndex = 0
 
             // Load all files from the directory
@@ -58,11 +61,31 @@ object FileManager {
 
             // Sort files by name to ensure consistent order
             dicomFiles.sortBy { it.name }
+
+            if (dicomFiles.isNotEmpty()) {
+                readMetadataFromFirstFile(dicomFiles.first())
+            }
+
             return dicomFiles.isNotEmpty()
         } catch (e: Exception) {
             Log.e("FileManager", "Error loading directory", e)
             return false
         }
+    }
+
+    private fun readMetadataFromFirstFile(file: File) {
+        try {
+            dicomMetadata.clear()
+            val metadata = DicomUtils.readDicomMetadata(file)
+            dicomMetadata.putAll(metadata)
+            Log.d("FileManager", "Metadata read successfully: ${dicomMetadata.size} fields")
+        } catch (e: Exception) {
+            Log.e("FileManager", "Error reading DICOM metadata", e)
+        }
+    }
+
+    fun getDicomMetadata(): HashMap<String, String> {
+        return HashMap(dicomMetadata) // Return a copy to prevent external modification
     }
 
     // Helper function to get file name from URI

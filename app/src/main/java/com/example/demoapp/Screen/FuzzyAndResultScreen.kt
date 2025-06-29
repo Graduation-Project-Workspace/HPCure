@@ -118,7 +118,7 @@ class FuzzyAndResultScreen : AppCompatActivity() {
         val bitmaps = FileManager.getAllFiles().mapNotNull { file ->
             FileManager.getProcessedImage(this, file)
         }
-        mriSequence = MRISequence(images = bitmaps, metadata = HashMap())
+        mriSequence = MRISequence(images = bitmaps, metadata = FileManager.getDicomMetadata())
 
         if (checkStoragePermission()) {
             initializeApp()

@@ -21,7 +21,7 @@ class ParallelFuzzySystem : IFuzzySystem {
 
     override fun estimateVolume(mriSequence: MRISequence, roiList: List<ROI>, seedPoints : List<Pair<Int, Int>>, alphaCut : Float): CancerVolume = runBlocking {
         _alphaCutValue = alphaCut
-        val totalVolume: Int
+        var totalVolume: Float
 
         val width = mriSequence.images[0].width
         val height = mriSequence.images[0].height
@@ -37,9 +37,18 @@ class ParallelFuzzySystem : IFuzzySystem {
                 }
             }
             val results = jobs.awaitAll()
-            totalVolume = results.sum()
+            totalVolume = results.sum().toFloat()
         }
         Log.d("ExecutionTime", "Execution time (FuzzySystem), ${mriSequence.images.size} images: $time ms")
+
+        val spacingBetweenSlices = mriSequence.metadata["SpacingBetweenSlices"]?.toFloat() ?: 1.0f
+        val sliceThickness = mriSequence.metadata["SliceThickness"]?.toFloat() ?: 1.0f
+        val pixelSpacingX = mriSequence.metadata["PixelSpacingX"]?.toFloat() ?: 1.0f
+        val pixelSpacingY = mriSequence.metadata["PixelSpacingY"]?.toFloat() ?: 1.0f
+
+        // Calculate the total volume based on the pixel spacing and slice thickness
+        val sliceArea = pixelSpacingX * pixelSpacingY
+        totalVolume = (totalVolume * sliceArea * sliceThickness * spacingBetweenSlices)
 
         return@runBlocking CancerVolume(
             volume = totalVolume,

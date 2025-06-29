@@ -115,6 +115,40 @@ object DicomUtils {
         }
     }
 
+
+    fun readDicomMetadata(file: File): HashMap<String, String> {
+        val metadata = HashMap<String, String>()
+        try {
+            // Assuming you're using dcm4che or another DICOM library
+            val dicomObject = readDicomAttributes(file)
+
+            // Extract important DICOM attributes
+            metadata["PatientName"] = dicomObject.getString(org.dcm4che3.data.Tag.PatientName, "")
+            metadata["PatientID"] = dicomObject.getString(org.dcm4che3.data.Tag.PatientID, "")
+            metadata["StudyDate"] = dicomObject.getString(org.dcm4che3.data.Tag.StudyDate, "")
+            metadata["Modality"] = dicomObject.getString(org.dcm4che3.data.Tag.Modality, "")
+
+            // Get pixel spacing (distance between pixels in the same slice)
+            val pixelSpacing = dicomObject.getDoubles(org.dcm4che3.data.Tag.PixelSpacing)
+            if (pixelSpacing != null && pixelSpacing.size >= 2) {
+                metadata["PixelSpacingX"] = pixelSpacing[0].toString()
+                metadata["PixelSpacingY"] = pixelSpacing[1].toString()
+            }
+
+            // Get slice spacing (distance between consecutive slices)
+            // Try different tags that might contain this information
+            val sliceThickness = dicomObject.getDouble(org.dcm4che3.data.Tag.SliceThickness, 0.0)
+            val spacingBetweenSlices = dicomObject.getDouble(org.dcm4che3.data.Tag.SpacingBetweenSlices, 0.0)
+
+            metadata["SliceThickness"] = sliceThickness.toString()
+            metadata["SpacingBetweenSlices"] = spacingBetweenSlices.toString()
+        } catch (e: Exception) {
+            Log.e("DicomUtils", "Error reading DICOM metadata", e)
+        }
+
+        return metadata
+    }
+
     /**
      * Reads DICOM attributes from file
      */
