@@ -6,6 +6,9 @@ import com.example.demoapp.Model.ROI
 interface ISeedPrecitor {
     fun predictSeed(
         mriSeq: MRISequence,
-        roiList: List<ROI>
+        roiList: List<ROI>,
+        useGpuDelegate : Boolean = true,
+        useAndroidNN : Boolean = true,
+        numThreads : Int = 4
     ): Array<Pair<Int, Int>>
 }

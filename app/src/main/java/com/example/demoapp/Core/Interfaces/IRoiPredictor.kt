@@ -8,8 +8,12 @@ import org.tensorflow.lite.Interpreter
 interface IRoiPredictor {
     fun predictRoi(
         sliceBitmap: Bitmap,
-        tflite: Interpreter
+        tflite: Interpreter,
     ): ROI
 
-    fun predictRoi(mriSequence: MRISequence) : List<ROI>
+    fun predictRoi(
+        mriSequence: MRISequence,
+        useGpuDelegate : Boolean = true,
+        useAndroidNN : Boolean = true,
+        numThreads : Int = 4) : List<ROI>
 }

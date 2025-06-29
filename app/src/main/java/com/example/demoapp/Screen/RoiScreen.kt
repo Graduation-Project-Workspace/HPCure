@@ -244,7 +244,6 @@ class RoiScreen : AppCompatActivity() {
             val intent = Intent(this, SeedScreen::class.java)
             intent.putExtra("roi_list", ArrayList(roiList))
             intent.putExtra("roi_time_taken", patientName.text.toString().replace("Time Taken: ", "").replace(" ms", "").toLong())
-            intent.putExtra("mri_sequence", mriSequence)
             intent.putExtra("shouldCleanup", false)
             startActivity(intent)
         }

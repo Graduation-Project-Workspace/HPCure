@@ -23,23 +23,28 @@ class ParallelSeedPredictor : ISeedPrecitor {
     private val inputSize = 512 // Model expects 512x512 input
     private var modelFile : ByteBuffer? = null
     private val interpreterPool = ThreadLocal<Interpreter>()
-    private val options: Interpreter.Options
+    private lateinit var options: Interpreter.Options
     private val modelName = "seed-pose.tflite"
 
     constructor(context: Context) {
         assetManager = context.assets
-        options = Interpreter.Options().apply {
-            if (GpuDelegateHelper().isGpuDelegateAvailable) {
-                addDelegate(GpuDelegateHelper().createGpuDelegate())
-            }
-            numThreads = 4
-        }
     }
 
     override fun predictSeed(
         mriSeq: MRISequence,
-        roi: List<ROI>
+        roi: List<ROI>,
+        useGpuDelegate : Boolean,
+        useAndroidNN : Boolean,
+        numThreads : Int
     ): Array<Pair<Int, Int>> = runBlocking {
+        options = Interpreter.Options().apply {
+            if (GpuDelegateHelper().isGpuDelegateAvailable && useGpuDelegate) {
+                addDelegate(GpuDelegateHelper().createGpuDelegate())
+            }
+            useNNAPI = useAndroidNN
+            setNumThreads(numThreads)
+        }
+
         modelFile = loadModelFile()
 
         val jobs = mriSeq.images.mapIndexed { index, sliceBitmap ->

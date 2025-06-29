@@ -17,30 +17,30 @@ import kotlin.math.max
 import kotlin.math.min
 
 class SequentialRoiPredictor : IRoiPredictor {
-    private var tflite: Interpreter
+    private lateinit var tflite: Interpreter
     private val assetManager: AssetManager
     private val inputSize = 512 // Model expects 512x512 input
     private val outputShape = intArrayOf(1, 5, 5376) // Based on Python output shape
 
     constructor(context: Context) {
         assetManager = context.assets
-        val options = Interpreter.Options().apply {
-            if(GpuDelegateHelper().isGpuDelegateAvailable) {
-                addDelegate(GpuDelegateHelper().createGpuDelegate())
-            }
-            useNNAPI = true
-            setNumThreads(4)
-        }
-        tflite = Interpreter(loadModelFile("breast_roi_model.tflite"), options)
-
-        // Log input/output details for debugging
-        val inputTensor = tflite.getInputTensor(0)
-        val outputTensor = tflite.getOutputTensor(0)
-        Log.d("ModelDetails", "Input shape: ${inputTensor.shape().contentToString()}")
-        Log.d("ModelDetails", "Output shape: ${outputTensor.shape().contentToString()}")
     }
 
-    override fun predictRoi(mriSequence: MRISequence) : List<ROI> {
+    override fun predictRoi(mriSequence: MRISequence,
+                            useGpuDelegate : Boolean,
+                            useAndroidNN : Boolean,
+                            numThreads : Int
+    ) : List<ROI> {
+        val options = Interpreter.Options().apply {
+            if(GpuDelegateHelper().isGpuDelegateAvailable && useGpuDelegate) {
+                addDelegate(GpuDelegateHelper().createGpuDelegate())
+            }
+            useNNAPI = useAndroidNN
+            setNumThreads(numThreads)
+        }
+
+        tflite = Interpreter(loadModelFile("breast_roi_model.tflite"), options)
+
         val roiList = mutableListOf<ROI>()
 
         for (sliceBitmap in mriSequence.images) {
@@ -48,6 +48,8 @@ class SequentialRoiPredictor : IRoiPredictor {
             val roi = predictRoi(sliceBitmap, tflite)
             roiList.add(roi)
         }
+
+        tflite.close()
 
         return roiList
     }

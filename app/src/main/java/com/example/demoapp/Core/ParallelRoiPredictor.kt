@@ -20,7 +20,7 @@ import java.nio.ByteOrder
 
 class ParallelRoiPredictor : IRoiPredictor {
     private var modelFile : ByteBuffer? = null
-    private var options: Interpreter.Options
+    private lateinit var options: Interpreter.Options
     private val interpreterPool = ThreadLocal<Interpreter>()
     private val assetManager: AssetManager
     private val inputSize = 512 // Model expects 512x512 input
@@ -29,17 +29,21 @@ class ParallelRoiPredictor : IRoiPredictor {
 
     constructor(context: Context) {
         assetManager = context.assets
-        options = Interpreter.Options().apply {
-            if(GpuDelegateHelper().isGpuDelegateAvailable) {
-                addDelegate(GpuDelegateHelper().createGpuDelegate())
-            }
-            useNNAPI = true
-            setNumThreads(4)
-        }
     }
 
-    override fun predictRoi(mriSequence: MRISequence) : List<ROI> = runBlocking {
+    override fun predictRoi(mriSequence: MRISequence,
+                            useGpuDelegate : Boolean,
+                            useAndroidNN : Boolean,
+                            numThreads : Int
+    ) : List<ROI> = runBlocking {
         modelFile = loadModelFile()
+        options = Interpreter.Options().apply {
+            if(GpuDelegateHelper().isGpuDelegateAvailable && useGpuDelegate) {
+                addDelegate(GpuDelegateHelper().createGpuDelegate())
+            }
+            useNNAPI = useAndroidNN
+            setNumThreads(numThreads)
+        }
         val jobs = mriSequence.images.map { sliceBitmap ->
             async(Dispatchers.Default) {
                 val interpreter = loadModel()

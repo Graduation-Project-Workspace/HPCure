@@ -18,12 +18,12 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import com.example.demoapp.Core.Interfaces.IFuzzySystem
 import com.example.demoapp.Core.ParallelFuzzySystem
 import com.example.demoapp.Model.CancerVolume
 import com.example.demoapp.Model.MRISequence
 import com.example.demoapp.Model.ROI
 import com.example.demoapp.R
-
 import com.example.demoapp.Utils.FileManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -68,6 +68,7 @@ class FuzzyAndResultScreen : AppCompatActivity() {
     private lateinit var roiList: List<ROI>
     private lateinit var seedList: Array<Pair<Int, Int>>
     private val fuzzyHighlightMap: MutableMap<Int, Boolean> = mutableMapOf()
+    private var fuzzySystem: IFuzzySystem = ParallelFuzzySystem()
 
     private val storagePermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -213,7 +214,6 @@ class FuzzyAndResultScreen : AppCompatActivity() {
             CoroutineScope(Dispatchers.Default).launch {
                 val alphaCut = currentAlphaCutValue
 
-                val fuzzySystem = ParallelFuzzySystem()
                 cancerVolume = fuzzySystem.estimateVolume(mriSequence, roiList, seedList.toList(), alphaCut)
                 val elapsed = System.currentTimeMillis() - startTime
 

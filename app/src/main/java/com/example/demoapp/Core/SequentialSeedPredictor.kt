@@ -15,42 +15,37 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
 class SequentialSeedPredictor : ISeedPrecitor {
-    private var tflite: Interpreter
+    private lateinit var tflite: Interpreter
     private val assetManager: AssetManager
     private val inputSize = 512 // Model expects 512x512 input
 
     constructor(context: Context) {
         assetManager = context.assets
-        try {
-            val options = Interpreter.Options().apply {
-                // Add this line to allow TF ops
-                //setAllowFp16PrecisionForFp32(true)
-
-                if(GpuDelegateHelper().isGpuDelegateAvailable) {
-                    addDelegate(GpuDelegateHelper().createGpuDelegate())
-                }
-                numThreads = 4
-            }
-
-            // Load model with TF ops support
-            val model = loadModelFile("seed-pose.tflite")
-            tflite = Interpreter(model, options)
-
-            // Log input/output details
-            val inputTensor = tflite.getInputTensor(0)
-            val outputTensor = tflite.getOutputTensor(0)
-            Log.d("ModelDetails", "Input shape: ${inputTensor.shape().contentToString()}")
-            Log.d("ModelDetails", "Output shape: ${outputTensor.shape().contentToString()}")
-        } catch (e: Exception) {
-            Log.e("SeedPredictor", "Error initializing interpreter", e)
-            throw RuntimeException("Failed to initialize TensorFlow Lite interpreter", e)
-        }
     }
 
     override fun predictSeed(
         mriSeq: MRISequence,
-        roi: List<ROI>
+        roi: List<ROI>,
+        useGpuDelegate: Boolean,
+        useAndroidNN: Boolean,
+        numThreads: Int
     ): Array<Pair<Int, Int>> {
+        val options = Interpreter.Options().apply {
+            if (GpuDelegateHelper().isGpuDelegateAvailable && useGpuDelegate) {
+                addDelegate(GpuDelegateHelper().createGpuDelegate())
+            }
+            useNNAPI = useAndroidNN
+            setNumThreads(numThreads)
+        }
+
+        try {
+            tflite = Interpreter(loadModelFile("seed-pose.tflite"), options)
+        } catch (e: Exception) {
+            Log.e("SeedPredictor", "Error loading model file", e)
+            throw RuntimeException("Failed to load TensorFlow Lite model", e)
+        }
+
+
         val seedPoints = mutableListOf<Pair<Int, Int>>()
 
         for ((index, sliceBitmap) in mriSeq.images.withIndex()) {
@@ -63,6 +58,7 @@ class SequentialSeedPredictor : ISeedPrecitor {
                 seedPoints.add(Pair(0, 0)) // Default value if prediction fails
             }
         }
+        tflite.close()
 
         return seedPoints.toTypedArray()
     }
