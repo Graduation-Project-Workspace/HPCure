@@ -1,0 +1,90 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "com.example.protos";
+option java_outer_classname = "TaskServices";
+
+package task_service.v1;
+
+service TaskService {
+  rpc RegisterWorker (RegisterWorkerRequest) returns (RegisterWorkerResponse);
+  rpc AssignTask (AssignTaskRequest) returns (AssignTaskResponse);
+}
+
+// Register response and request
+message RegisterWorkerRequest {
+  string worker_address = 1;
+  string friendly_name = 2;
+  repeated string capabilities = 3;  // List of tasks this worker can handle
+}
+
+message RegisterWorkerResponse {
+  bool success = 1;
+  string friendly_name = 2;
+  string worker_id = 3;  // Unique identifier for the worker
+}
+
+// Assign response and request
+message AssignTaskRequest {
+  oneof task {
+    VolumeEstimateRequest volume_estimate_request = 1;
+  }
+  string task_id = 2;  // Unique identifier for the task
+  string requester_id = 3;  // ID of the client requesting the task
+}
+
+message AssignTaskResponse {
+  oneof result {
+    VolumeEstimateResponse volume_estimate_response = 1;
+  }
+  map<string, RowIndices> worker_info = 2;  // Maps worker address to their assigned slice indices
+  map<string, string> friendly_names = 3;  // Maps worker address to their friendly names
+  string task_id = 4;  // Echo of the task_id from request
+  TaskStatus status = 5;  // Status of the task execution
+}
+
+enum TaskStatus {
+  UNKNOWN = 0;
+  IN_PROGRESS = 1;
+  COMPLETED = 2;
+  FAILED = 3;
+}
+
+message RowIndices {
+  repeated int32 values = 1;  // List of slice indices assigned to this worker
+}
+
+// Volume Estimation specific messages
+message VolumeEstimateRequest {
+  repeated ImageSlice slices = 1;  // List of MRI slices to process
+  float alpha_cut_value = 2;  // Alpha cut value for volume estimation
+  string requester_id = 3;  // ID of the client requesting volume estimation
+}
+
+message VolumeEstimateResponse {
+  repeated ROI rois = 1;  // List of ROIs for each slice
+  repeated SeedPoint seed_points = 2;  // List of seed points for each slice
+  string requester_id = 3;  // Echo of the requester_id
+}
+
+message ImageSlice {
+  bytes image_data = 1;  // Raw image data
+  int32 width = 2;  // Width of the image
+  int32 height = 3;  // Height of the image
+  int32 slice_index = 4;  // Index of this slice in the sequence
+}
+
+message ROI {
+  int32 x_min = 1;
+  int32 y_min = 2;
+  int32 x_max = 3;
+  int32 y_max = 4;
+  int32 slice_index = 5;  // Index of the slice this ROI belongs to
+}
+
+message SeedPoint {
+  int32 x = 1;
+  int32 y = 2;
+  int32 slice_index = 3;  // Index of the slice this seed point belongs to
+}
+
