@@ -85,8 +85,14 @@ class VolumeEstimateCoordinatorStrategy(
     override fun aggregateResults(
         results: List<Pair<String, WorkerResult>>
     ): AssignTaskResponse {
-        val aggregatedRois = mutableListOf<ROI>()
-        val aggregatedSeedPoints = mutableListOf<SeedPoint>()
+        // Calculate total size needed
+        val totalSize = results.maxOfOrNull { (_, result) -> 
+            result.assignedRange.maxOrNull() ?: 0 
+        }?.plus(1) ?: 0
+        
+        // Pre-allocate lists with the correct size
+        val aggregatedRois = MutableList(totalSize) { ROI(0, 0, 0, 0) }
+        val aggregatedSeedPoints = MutableList(totalSize) { SeedPoint.newBuilder().setX(0).setY(0).build() }
         val workerInfo = mutableMapOf<String, RowIndices>()
         val friendlyNames = mutableMapOf<String, String>()
 
@@ -96,16 +102,20 @@ class VolumeEstimateCoordinatorStrategy(
             // Add ROIs and seed points in order based on the assigned range
             val startIndex = result.assignedRange.first()
             volumeResponse.roisList.forEachIndexed { index, roi ->
-                aggregatedRois.add(startIndex + index, ROI(
-                    xMin = roi.xMin,
-                    yMin = roi.yMin,
-                    xMax = roi.xMax,
-                    yMax = roi.yMax
-                ))
+                if (startIndex + index < totalSize) {
+                    aggregatedRois[startIndex + index] = ROI(
+                        xMin = roi.xMin,
+                        yMin = roi.yMin,
+                        xMax = roi.xMax,
+                        yMax = roi.yMax
+                    )
+                }
             }
             
             volumeResponse.seedPointsList.forEachIndexed { index, seedPoint ->
-                aggregatedSeedPoints.add(startIndex + index, seedPoint)
+                if (startIndex + index < totalSize) {
+                    aggregatedSeedPoints[startIndex + index] = seedPoint
+                }
             }
 
             // Add worker info

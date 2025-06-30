@@ -28,6 +28,14 @@ class UploadScreen : AppCompatActivity() {
         setContentView(R.layout.upload_screen)
         FileManager.initialize(this)
 
+        // Initialize gRPC components early
+        try {
+            SharedViewModel.getInstance(this)
+            Log.d("UploadScreen", "gRPC components initialized successfully")
+        } catch (e: Exception) {
+            Log.e("UploadScreen", "Error initializing gRPC components", e)
+        }
+
         val uploadContainer: RelativeLayout = findViewById(R.id.upload_container)
         uploadedImage = findViewById(R.id.uploaded_image)
         loadingOverlay = findViewById(R.id.loading_overlay)

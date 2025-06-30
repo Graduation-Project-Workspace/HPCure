@@ -1,4 +1,4 @@
-package com.example.demoapp.Screen
+package com.example.demoapp.Screen.OnBoarding
 
 import android.view.LayoutInflater
 import android.view.View

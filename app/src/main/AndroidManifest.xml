@@ -73,7 +73,7 @@
             android:exported="true"
             android:label="@string/app_name"
             android:theme="@style/Theme.DemoApp" />
-        <activity android:name=".Screen.OnboardingActivity"
+        <activity android:name=".Screen.OnBoarding.OnboardingActivity"
             android:exported="true"
             android:theme="@style/Theme.AppCompat.Light.NoActionBar"/>
 

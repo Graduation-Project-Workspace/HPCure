@@ -1,4 +1,4 @@
-package com.example.demoapp.Screen
+package com.example.demoapp.Screen.OnBoarding
 
 import com.example.demoapp.R
 
