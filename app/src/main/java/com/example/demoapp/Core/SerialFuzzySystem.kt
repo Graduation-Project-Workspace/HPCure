@@ -19,6 +19,13 @@ class SerialFuzzySystem : IFuzzySystem {
     override fun estimateVolume(mriSequence: MRISequence, roiList: List<ROI>, seedPoints : List<Pair<Int, Int>>, alphaCut : Float): CancerVolume = runBlocking {
         _alphaCutValue = alphaCut
         var totalVolume = 0f
+
+        affinityMatrix = Array(mriSequence.images.size) { i ->
+            val height = mriSequence.images[i].height
+            val width = mriSequence.images[i].width
+            Array(height) { FloatArray(width) { 0f } }
+        }
+
         val time = measureTimeMillis {
             for (i in mriSequence.images.indices) {
                 val image = mriSequence.images[i]

@@ -216,6 +216,9 @@ class FuzzyAndResultScreen : AppCompatActivity() {
         resultsBackButton = findViewById(R.id.results_back_button)
         loadingOverlay = findViewById(R.id.loading_overlay)
 
+        btnParallel.setOnClickListener { setMode("Parallel") }
+        btnSerial.setOnClickListener { setMode("Serial") }
+
         resultsRecalculateButton.setOnClickListener {
             performRecalculation()
         }
@@ -279,9 +282,7 @@ class FuzzyAndResultScreen : AppCompatActivity() {
     private fun performRecalculation() {
         showLoadingState()
 
-        parallelFuzzySystem = ParallelFuzzySystem()
-        sequentialFuzzySystem = SerialFuzzySystem()
-        fuzzySystem = if (selectedMode == "Parallel") parallelFuzzySystem else sequentialFuzzySystem
+        fuzzySystem = ParallelFuzzySystem()
 
         CoroutineScope(Dispatchers.Default).launch {
             val alphaCut = currentAlphaCutValue
