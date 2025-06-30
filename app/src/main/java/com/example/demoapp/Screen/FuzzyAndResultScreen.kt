@@ -18,14 +18,16 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import com.example.domain.interfaces.tumor.IFuzzySystem
 import com.example.demoapp.Core.ParallelFuzzySystem
 import com.example.demoapp.Core.ParallelRoiPredictor
 import com.example.demoapp.Core.ParallelSeedPredictor
 import com.example.demoapp.Core.SerialFuzzySystem
-import com.example.domain.model.*
 import com.example.demoapp.R
 import com.example.demoapp.Utils.FileManager
+import com.example.domain.interfaces.tumor.IFuzzySystem
+import com.example.domain.model.CancerVolume
+import com.example.domain.model.MRISequence
+import com.example.domain.model.ROI
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -65,8 +67,10 @@ class FuzzyAndResultScreen : AppCompatActivity() {
     private var roiTimeTaken: Long = 0
     private var seedTimeTaken: Long = 0
     private lateinit var cancerVolume: CancerVolume
-    private lateinit var mriSequence: MRISequence
+    private lateinit var originalMriSequence: MRISequence
+    private lateinit var tumorMriSequence: MRISequence
     private var roiList: List<ROI> = emptyList()
+    private var tumorRoiList: List<ROI> = emptyList()
     private var seedList: Array<Pair<Int, Int>> = emptyArray()
     private lateinit var parallelFuzzySystem: ParallelFuzzySystem
     private lateinit var sequentialFuzzySystem: SerialFuzzySystem
@@ -74,6 +78,7 @@ class FuzzyAndResultScreen : AppCompatActivity() {
     private var selectedMode: String = "Parallel"
     private lateinit var roiPredictor: ParallelRoiPredictor
     private lateinit var seedPredictor: ParallelSeedPredictor
+    private var sliceIndex = 0
 
     private val storagePermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -122,7 +127,15 @@ class FuzzyAndResultScreen : AppCompatActivity() {
         val bitmaps = FileManager.getAllFiles().mapNotNull {
             FileManager.getProcessedImage(this, it)
         }
-        mriSequence = MRISequence(images = bitmaps, metadata = FileManager.getDicomMetadata())
+        originalMriSequence = MRISequence(images = bitmaps, metadata = FileManager.getDicomMetadata())
+        tumorMriSequence = MRISequence(images = emptyList(), metadata = FileManager.getDicomMetadata())
+
+        for ((index, roi) in roiList.withIndex()) {
+            if (roi.score > 0.3) {
+                tumorMriSequence.images+= originalMriSequence.images[index]
+                tumorRoiList+= roi
+            }
+        }
 
         // Initialize predictors after context is available
         roiPredictor = ParallelRoiPredictor(this)
@@ -246,7 +259,7 @@ class FuzzyAndResultScreen : AppCompatActivity() {
 
             CoroutineScope(Dispatchers.Default).launch {
                 val alphaCut = currentAlphaCutValue
-                cancerVolume = fuzzySystem!!.estimateVolume(mriSequence, roiList, seedList.toList(), alphaCut)
+                cancerVolume = fuzzySystem!!.estimateVolume(tumorMriSequence, tumorRoiList, seedList.toList(), alphaCut)
                 val elapsed = System.currentTimeMillis() - startTime
 
                 withContext(Dispatchers.Main) {
@@ -274,10 +287,10 @@ class FuzzyAndResultScreen : AppCompatActivity() {
             val alphaCut = currentAlphaCutValue
             val startTime = System.currentTimeMillis()
 
-            roiList = roiPredictor.predictRoi(mriSequence)
-            seedList = seedPredictor.predictSeed(mriSequence, roiList)
+            roiList = roiPredictor.predictRoi(tumorMriSequence)
+            seedList = seedPredictor.predictSeed(tumorMriSequence, tumorRoiList)
 
-            cancerVolume = fuzzySystem!!.estimateVolume(mriSequence, roiList, seedList.toList(), alphaCut)
+            cancerVolume = fuzzySystem!!.estimateVolume(tumorMriSequence, tumorRoiList, seedList.toList(), alphaCut)
 
             val elapsed = System.currentTimeMillis() - startTime
             val totalTime = roiTimeTaken + seedTimeTaken + elapsed
@@ -312,27 +325,24 @@ class FuzzyAndResultScreen : AppCompatActivity() {
     }
 
     private fun navigateImage(direction: Int) {
-        val moved = if (direction < 0) FileManager.moveToPrevious() else FileManager.moveToNext()
-        if (moved) {
-            updateImageCount()
-            loadCurrentImage()
-            if (resultsLayout.visibility == View.VISIBLE) {
-                loadCurrentResultsImage()
-            }
+        sliceIndex += direction
+        updateImageCount()
+        loadCurrentImage()
+        if (resultsLayout.visibility == View.VISIBLE) {
+            loadCurrentResultsImage()
         }
     }
 
     private fun loadCurrentImage() {
-        val index = FileManager.getCurrentIndex() - 1
         val displayBitmap = when {
-            index < roiList.size && index < seedList.size -> {
-                drawSeedPointInsideNormalizedRoi(mriSequence.images[index], roiList[index], seedList[index])
+            sliceIndex < tumorRoiList.size && sliceIndex < seedList.size -> {
+                drawSeedPointInsideNormalizedRoi(tumorMriSequence.images[sliceIndex], tumorRoiList[sliceIndex], seedList[sliceIndex])
             }
-            index < roiList.size -> {
-                drawNormalizedRoiOnly(mriSequence.images[index], roiList[index])
+            sliceIndex < tumorRoiList.size -> {
+                drawNormalizedRoiOnly(tumorMriSequence.images[sliceIndex], roiList[sliceIndex])
             }
             else -> {
-                mriSequence.images[index]
+                tumorMriSequence.images[sliceIndex]
             }
         }
         fuzzyMriImage.setImageBitmap(displayBitmap)
@@ -341,10 +351,9 @@ class FuzzyAndResultScreen : AppCompatActivity() {
     }
 
     private fun loadCurrentResultsImage() {
-        val index = FileManager.getCurrentIndex() - 1
 
         if (::cancerVolume.isInitialized) {
-            val displayBitmap = highlightCancerArea(mriSequence.images[index], index)
+            val displayBitmap = highlightCancerArea(tumorMriSequence.images[sliceIndex], sliceIndex)
             resultsMriImage.setImageBitmap(displayBitmap)
         }
     }
@@ -434,14 +443,14 @@ class FuzzyAndResultScreen : AppCompatActivity() {
 
 
     private fun updateImageCount() {
-        val countText = "${FileManager.getCurrentIndex()}/${FileManager.getTotalFiles()}"
+        val countText = "${sliceIndex + 1}/${tumorMriSequence.images.size}"
         fuzzyImageCount.text = countText
         resultsImageCount.text = countText
     }
 
     private fun updateNavigationButtons() {
-        val currentIndex = FileManager.getCurrentIndex()
-        val totalFiles = FileManager.getTotalFiles()
+        val currentIndex = sliceIndex + 1
+        val totalFiles = tumorMriSequence.images.size
 
         // Update fuzzy navigation
         fuzzyPrevImage.visibility = if (currentIndex > 1) View.VISIBLE else View.INVISIBLE

@@ -7,5 +7,6 @@ class ROI (
     var xMax: Int,
     var yMin: Int,
     var yMax: Int,
+    var score: Float = 0f,
 ) : Serializable
 

@@ -6,9 +6,10 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.util.Log
 import androidx.core.graphics.scale
-import com.example.domain.model.*
 import com.example.demoapp.Utils.GpuDelegateHelper
 import com.example.domain.interfaces.tumor.IRoiPredictor
+import com.example.domain.model.MRISequence
+import com.example.domain.model.ROI
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -117,7 +118,8 @@ class ParallelRoiPredictor : IRoiPredictor {
             xMin = x1,
             xMax = x2,
             yMin = y1,
-            yMax = y2
+            yMax = y2,
+            score = maxConf
         )
     }
 

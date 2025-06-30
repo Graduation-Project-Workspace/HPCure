@@ -13,7 +13,6 @@ import android.os.Bundle
 import android.os.Environment
 import android.provider.Settings
 import android.util.Log
-import android.view.MotionEvent
 import android.view.View
 import android.widget.*
 import androidx.activity.result.contract.ActivityResultContracts
@@ -22,12 +21,12 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.example.demoapp.Core.ParallelRoiPredictor
 import com.example.demoapp.Core.SequentialRoiPredictor
-import com.example.domain.interfaces.tumor.*
-import com.example.domain.model.MRISequence
-import com.example.domain.model.ROI
 import com.example.demoapp.R
 import com.example.demoapp.Utils.FileManager
 import com.example.demoapp.Utils.GpuDelegateHelper
+import com.example.domain.interfaces.tumor.IRoiPredictor
+import com.example.domain.model.MRISequence
+import com.example.domain.model.ROI
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -55,10 +54,14 @@ class RoiScreen : AppCompatActivity() {
     private lateinit var parallelRoiPredictor: ParallelRoiPredictor
     private lateinit var sequentialRoiPredictor: SequentialRoiPredictor
 
-    private lateinit var mriSequence: MRISequence
+    private lateinit var originalMriSequence: MRISequence
+    private lateinit var tumorMriSequence: MRISequence
+
     private var selectedMode: String = "Parallel"
 
     private var roiList: List<ROI> = emptyList()
+    private var tumorRoiList: List<ROI> = emptyList()
+    private var sliceIndex = 0
     private val context = this
 
     private val storagePermissionLauncher = registerForActivityResult(
@@ -92,9 +95,8 @@ class RoiScreen : AppCompatActivity() {
         val bitmaps = FileManager.getAllFiles().mapNotNull { file ->
             FileManager.getProcessedImage(this, file)
         }
-        mriSequence = MRISequence(images = bitmaps, metadata = FileManager.getDicomMetadata())
-
-        Log.d("FuzzyAndResultScreen", "Metadata: ${mriSequence.metadata}")
+        originalMriSequence = MRISequence(images = bitmaps, metadata = FileManager.getDicomMetadata())
+        tumorMriSequence = MRISequence(images = bitmaps, metadata = FileManager.getDicomMetadata())
 
         if (checkStoragePermission()) {
             initializeApp()
@@ -207,11 +209,22 @@ class RoiScreen : AppCompatActivity() {
             showLoadingState()
             CoroutineScope(Dispatchers.IO).launch {
                 val startTime = System.currentTimeMillis()
-                roiList = roiPredictor.predictRoi(mriSequence)
+                roiList = roiPredictor.predictRoi(originalMriSequence)
+                tumorMriSequence.images = emptyList()
+                for ((index, roi) in roiList.withIndex()) {
+                    if (roi.score > 0.3) {
+                        tumorMriSequence.images+= originalMriSequence.images[index]
+                        tumorRoiList+= roi
+                    }
+                }
+                sliceIndex = 0
+
                 val endTime = System.currentTimeMillis()
                 val timeTaken = endTime - startTime
 
                 withContext(Dispatchers.Main) {
+                    updateImageCount()
+                    updateNavigationButtons()
                     hideLoadingState()
                     loadCurrentImage()
                     patientName.text = "Time Taken: $timeTaken ms"
@@ -255,10 +268,9 @@ class RoiScreen : AppCompatActivity() {
     }
 
     private fun loadCurrentImage() {
-        val index = FileManager.getCurrentIndex() - 1
-        val displayBitmap = roiList.getOrNull(index)?.let {
-            drawRoiRectangleOnBitmap(mriSequence.images[index], roiList[index])
-        } ?: mriSequence.images[index]
+        val displayBitmap = roiList.getOrNull(sliceIndex)?.let {
+            drawRoiRectangleOnBitmap(tumorMriSequence.images[sliceIndex], tumorRoiList[sliceIndex])
+        } ?: tumorMriSequence.images[sliceIndex]
 
         mriImage.apply {
             setImageBitmap(displayBitmap)
@@ -283,27 +295,23 @@ class RoiScreen : AppCompatActivity() {
 
     private fun setupImageNavigation() {
         prevImage.setOnClickListener {
-            if (FileManager.moveToPrevious()) {
-                loadCurrentImage()
-                updateImageCount()
-            }
+            sliceIndex--
+            loadCurrentImage()
+            updateImageCount()
         }
         nextImage.setOnClickListener {
-            if (FileManager.moveToNext()) {
-                loadCurrentImage()
-                updateImageCount()
-            }
+            sliceIndex++
+            loadCurrentImage()
+            updateImageCount()
         }
     }
 
     private fun updateImageCount() {
-        imageCount.text = "${FileManager.getCurrentIndex()}/${FileManager.getTotalFiles()}"
+        imageCount.text = "${sliceIndex + 1}/${tumorMriSequence.images.size}"
     }
 
     private fun updateNavigationButtons() {
-        val currentIndex = FileManager.getCurrentIndex()
-        val totalFiles = FileManager.getTotalFiles()
-        prevImage.visibility = if (currentIndex > 1) ImageButton.VISIBLE else ImageButton.INVISIBLE
-        nextImage.visibility = if (currentIndex < totalFiles) ImageButton.VISIBLE else ImageButton.INVISIBLE
+        prevImage.visibility = if (sliceIndex > 0) ImageButton.VISIBLE else ImageButton.INVISIBLE
+        nextImage.visibility = if (sliceIndex < tumorMriSequence.images.size - 1) ImageButton.VISIBLE else ImageButton.INVISIBLE
     }
 }
