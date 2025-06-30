@@ -4,10 +4,10 @@ import android.graphics.Bitmap
 import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
-import com.example.demoapp.Core.Interfaces.IFuzzySystem
-import com.example.demoapp.Model.CancerVolume
-import com.example.demoapp.Model.MRISequence
-import com.example.demoapp.Model.ROI
+import com.example.domain.interfaces.tumor.IFuzzySystem
+import com.example.domain.model.CancerVolume
+import com.example.domain.model.MRISequence
+import com.example.domain.model.ROI
 import kotlinx.coroutines.runBlocking
 import kotlin.system.measureTimeMillis
 
@@ -19,6 +19,13 @@ class SerialFuzzySystem : IFuzzySystem {
     override fun estimateVolume(mriSequence: MRISequence, roiList: List<ROI>, seedPoints : List<Pair<Int, Int>>, alphaCut : Float): CancerVolume = runBlocking {
         _alphaCutValue = alphaCut
         var totalVolume = 0f
+
+        affinityMatrix = Array(mriSequence.images.size) { i ->
+            val height = mriSequence.images[i].height
+            val width = mriSequence.images[i].width
+            Array(height) { FloatArray(width) { 0f } }
+        }
+
         val time = measureTimeMillis {
             for (i in mriSequence.images.indices) {
                 val image = mriSequence.images[i]

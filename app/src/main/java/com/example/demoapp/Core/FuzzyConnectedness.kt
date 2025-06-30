@@ -3,7 +3,7 @@ package com.example.demoapp.Core
 import android.graphics.Bitmap
 import android.os.Build
 import androidx.annotation.RequiresApi
-import com.example.demoapp.Model.ROI
+import com.example.domain.model.ROI
 import java.util.PriorityQueue
 import kotlin.math.abs
 import kotlin.math.exp

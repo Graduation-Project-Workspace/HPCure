@@ -12,21 +12,20 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.Settings
-import android.util.Log
 import android.view.View
 import android.widget.*
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import com.example.demoapp.Core.Interfaces.ISeedPrecitor
 import com.example.demoapp.Core.ParallelSeedPredictor
 import com.example.demoapp.Core.SequentialSeedPredictor
-import com.example.demoapp.Model.MRISequence
-import com.example.demoapp.Model.ROI
 import com.example.demoapp.R
 import com.example.demoapp.Utils.FileManager
 import com.example.demoapp.Utils.GpuDelegateHelper
+import com.example.domain.interfaces.tumor.ISeedPredictor
+import com.example.domain.model.MRISequence
+import com.example.domain.model.ROI
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -50,17 +49,20 @@ class SeedScreen : AppCompatActivity() {
     private lateinit var confirmButton: Button
     private lateinit var customizeButton: Button
 
-    private lateinit var seedPredictor: ISeedPrecitor
+    private lateinit var seedPredictor: ISeedPredictor
     private lateinit var parallelSeedPredictor: ParallelSeedPredictor
     private lateinit var sequentialSeedPredictor: SequentialSeedPredictor
 
-    private lateinit var mriSequence: MRISequence
+    private lateinit var originalMriSequence: MRISequence
+    private lateinit var tumorMriSequence: MRISequence
     private var selectedMode: String = "Parallel"
     private var roiTimeTaken: Long = 0
 
     private var roiList: List<ROI> = emptyList()
+    private var tumorRoiList = emptyList<ROI>()
     private var seedList: Array<Pair<Int, Int>> = emptyArray()
     private val context = this
+    private var sliceIndex = 0
 
     private val storagePermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -102,7 +104,15 @@ class SeedScreen : AppCompatActivity() {
         val bitmaps = FileManager.getAllFiles().mapNotNull { file ->
             FileManager.getProcessedImage(this, file)
         }
-        mriSequence = MRISequence(images = bitmaps, metadata = FileManager.getDicomMetadata())
+        originalMriSequence = MRISequence(images = bitmaps, metadata = FileManager.getDicomMetadata())
+        tumorMriSequence = MRISequence(images = emptyList(), metadata = FileManager.getDicomMetadata())
+
+        for ((index, roi) in roiList.withIndex()) {
+            if (roi.score > 0.3) {
+                tumorMriSequence.images+= originalMriSequence.images[index]
+                tumorRoiList+= roi
+            }
+        }
 
         if (checkStoragePermission()) {
             initializeApp()
@@ -221,8 +231,8 @@ class SeedScreen : AppCompatActivity() {
                 val startTime = System.currentTimeMillis()
 
                 seedList = seedPredictor.predictSeed(
-                    mriSeq = mriSequence,
-                    roiList = roiList
+                    mriSeq = tumorMriSequence,
+                    roiList = tumorRoiList
                 )
 
                 val endTime = System.currentTimeMillis()
@@ -269,17 +279,16 @@ class SeedScreen : AppCompatActivity() {
     }
 
     private fun loadCurrentImage() {
-        val index = FileManager.getCurrentIndex() - 1
-        val displayBitmap = if (roiList.size > index && seedList.size > index) {
+        val displayBitmap = if (roiList.size > sliceIndex && seedList.size > sliceIndex) {
             drawSeedPointInsideNormalizedRoi(
-                mriSequence.images[index],
-                roiList[index],
-                seedList[index]
+                tumorMriSequence.images[sliceIndex],
+                tumorRoiList[sliceIndex],
+                seedList[sliceIndex]
             )
-        } else if (roiList.size > index) {
-            drawNormalizedRoiOnly(mriSequence.images[index], roiList[index])
+        } else if (roiList.size > sliceIndex) {
+            drawNormalizedRoiOnly(tumorMriSequence.images[sliceIndex], tumorRoiList[sliceIndex])
         } else {
-            mriSequence.images[index]
+            tumorMriSequence.images[sliceIndex]
         }
 
         mriImage.apply {
@@ -329,27 +338,23 @@ class SeedScreen : AppCompatActivity() {
 
     private fun setupImageNavigation() {
         prevImage.setOnClickListener {
-            if (FileManager.moveToPrevious()) {
-                loadCurrentImage()
-                updateImageCount()
-            }
+            sliceIndex--
+            loadCurrentImage()
+            updateImageCount()
         }
         nextImage.setOnClickListener {
-            if (FileManager.moveToNext()) {
-                loadCurrentImage()
-                updateImageCount()
-            }
+            sliceIndex++
+            loadCurrentImage()
+            updateImageCount()
         }
     }
 
     private fun updateImageCount() {
-        imageCount.text = "${FileManager.getCurrentIndex()}/${FileManager.getTotalFiles()}"
+        imageCount.text = "${sliceIndex + 1}/${tumorMriSequence.images.size}"
     }
 
     private fun updateNavigationButtons() {
-        val currentIndex = FileManager.getCurrentIndex()
-        val totalFiles = FileManager.getTotalFiles()
-        prevImage.visibility = if (currentIndex > 1) ImageButton.VISIBLE else ImageButton.INVISIBLE
-        nextImage.visibility = if (currentIndex < totalFiles) ImageButton.VISIBLE else ImageButton.INVISIBLE
+        prevImage.visibility = if (sliceIndex > 0) ImageButton.VISIBLE else ImageButton.INVISIBLE
+        nextImage.visibility = if (sliceIndex < tumorMriSequence.images.size - 1) ImageButton.VISIBLE else ImageButton.INVISIBLE
     }
 }

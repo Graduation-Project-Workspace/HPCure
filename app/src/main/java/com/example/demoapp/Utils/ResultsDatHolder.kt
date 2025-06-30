@@ -1,8 +1,8 @@
 package com.example.demoapp.Utils
 
-import com.example.demoapp.Model.CancerVolume
-import com.example.demoapp.Model.MRISequence
-import com.example.demoapp.Model.ROI
+import com.example.domain.model.CancerVolume
+import com.example.domain.model.MRISequence
+import com.example.domain.model.ROI
 
 object ResultsDataHolder {
     var mriSequence: MRISequence? = null

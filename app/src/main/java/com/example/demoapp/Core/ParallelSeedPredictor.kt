@@ -6,9 +6,9 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.util.Log
 import androidx.core.graphics.scale
-import com.example.demoapp.Core.Interfaces.ISeedPrecitor
-import com.example.demoapp.Model.MRISequence
-import com.example.demoapp.Model.ROI
+import com.example.domain.interfaces.tumor.ISeedPredictor
+import com.example.domain.model.MRISequence
+import com.example.domain.model.ROI
 import com.example.demoapp.Utils.GpuDelegateHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -18,7 +18,7 @@ import org.tensorflow.lite.Interpreter
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
-class ParallelSeedPredictor : ISeedPrecitor {
+class ParallelSeedPredictor : ISeedPredictor {
     private val assetManager: AssetManager
     private val inputSize = 512 // Model expects 512x512 input
     private var modelFile : ByteBuffer? = null
