@@ -374,14 +374,13 @@ class FuzzyAndResultScreen : BaseActivity() {
                             )
                             
                             val elapsed = System.currentTimeMillis() - startTime
-                            val totalTime = roiTimeTaken + seedTimeTaken + elapsed
                             
                             withContext(Dispatchers.Main) {
                                 loadingOverlay.visibility = View.GONE
                                 fuzzyCalculateButton.isEnabled = true
                                 resultsRecalculateButton.isEnabled = true
                                 resultsTumorVolume.text = "Tumor Volume: ${cancerVolume.volume} mm³"
-                                resultsPatientName.text = "Total Time: ${totalTime}ms"
+                                resultsPatientName.text = "gRPC Computation Time: ${elapsed}ms"
                                 showResultsLayout()
                                 loadCurrentResultsImage()
                             }
