@@ -42,6 +42,7 @@ class ParallelRoiPredictor : IRoiPredictor {
                 addDelegate(GpuDelegateHelper().createGpuDelegate())
             }
             useNNAPI = useAndroidNN
+            setUseXNNPACK(false)
             setNumThreads(numThreads)
         }
         val jobs = mriSequence.images.map { sliceBitmap ->

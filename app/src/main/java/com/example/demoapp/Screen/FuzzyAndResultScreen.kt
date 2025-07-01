@@ -54,6 +54,8 @@ class FuzzyAndResultScreen : BaseActivity() {
     private var selectedMode: String = "Parallel"
     private lateinit var roiPredictor: ParallelRoiPredictor
     private lateinit var seedPredictor: ParallelSeedPredictor
+    private lateinit var sequentialRoiPredictor: SequentialRoiPredictor
+    private lateinit var sequentialSeedPredictor: SequentialSeedPredictor
     private var sliceIndex = 0
 
     private val storagePermissionLauncher = registerForActivityResult(
@@ -122,6 +124,8 @@ class FuzzyAndResultScreen : BaseActivity() {
         // Initialize predictors after context is available
         roiPredictor = ParallelRoiPredictor(this)
         seedPredictor = ParallelSeedPredictor(this)
+        sequentialRoiPredictor = SequentialRoiPredictor(this)
+        sequentialSeedPredictor = SequentialSeedPredictor(this)
 
         parallelFuzzySystem = ParallelFuzzySystem()
         sequentialFuzzySystem = SerialFuzzySystem()
@@ -357,33 +361,63 @@ class FuzzyAndResultScreen : BaseActivity() {
                     loadingOverlay.visibility = View.VISIBLE
                     fuzzyCalculateButton.isEnabled = false
                     resultsRecalculateButton.isEnabled = false
-                    
                     CoroutineScope(Dispatchers.Default).launch {
                         try {
-                            val startTime = System.currentTimeMillis()
-                            
-                            // Create VolumeEstimator instance
-                            val volumeEstimator = VolumeEstimator(
-                                fuzzySystem = parallelFuzzySystem,
-                                seedPredictor = seedPredictor,
-                                roiPredictor = roiPredictor,
-                                network = SharedViewModel.getInstance(this@FuzzyAndResultScreen).network
-                            )
-                            
-                            // Use gRPC volume estimation
-                            cancerVolume = volumeEstimator.estimateVolumeGrpc(
-                                mriSeq = tumorMriSequence,
-                                alphaCutValue = currentAlphaCutValue
-                            )
-                            
-                            val elapsed = System.currentTimeMillis() - startTime
-                            
+                            val startTime: Long
+                            val elapsed: Long
+                            if (selectedMode == "Parallel") {
+                                // Parallel pipeline
+                                startTime = System.currentTimeMillis()
+                                Log.d("FuzzyAndResultScreen", "Starting ROI prediction, images: ${tumorMriSequence.images.size}")
+                                val roiListParallel = roiPredictor.predictRoi(tumorMriSequence, useGpuDelegate = false, useAndroidNN = false, numThreads = 4)
+                                Log.d("FuzzyAndResultScreen", "ROI prediction done, rois: ${roiListParallel.size}")
+
+                                Log.d("FuzzyAndResultScreen", "Starting Seed prediction")
+                                val seedListParallel = seedPredictor.predictSeed(tumorMriSequence, roiListParallel, useGpuDelegate = false, useAndroidNN = false, numThreads = 4).toList()
+                                Log.d("FuzzyAndResultScreen", "Seed prediction done, seeds: ${seedListParallel.size}")
+
+                                Log.d("FuzzyAndResultScreen", "Starting Fuzzy volume estimation")
+                                cancerVolume = parallelFuzzySystem.estimateVolume(tumorMriSequence, roiListParallel, seedListParallel, currentAlphaCutValue)
+                                Log.d("FuzzyAndResultScreen", "Fuzzy volume estimation done")
+                                tumorRoiList = roiListParallel
+                                seedList = seedListParallel.toTypedArray()
+                                elapsed = System.currentTimeMillis() - startTime
+                            } else if (selectedMode == "Serial") {
+                                // Serial pipeline
+                                startTime = System.currentTimeMillis()
+                                val roiListSerial = sequentialRoiPredictor.predictRoi(tumorMriSequence, useGpuDelegate = false, useAndroidNN = false, numThreads = 1)
+                                val seedListSerial = sequentialSeedPredictor.predictSeed(tumorMriSequence, roiListSerial, useGpuDelegate = false, useAndroidNN = false, numThreads = 1).toList()
+                                cancerVolume = sequentialFuzzySystem.estimateVolume(tumorMriSequence, roiListSerial, seedListSerial, currentAlphaCutValue)
+                                tumorRoiList = roiListSerial
+                                seedList = seedListSerial.toTypedArray()
+                                elapsed = System.currentTimeMillis() - startTime
+                            } else {
+                                startTime = System.currentTimeMillis()
+
+                                // Create VolumeEstimator instance
+                                val volumeEstimator = VolumeEstimator(
+                                    fuzzySystem = parallelFuzzySystem,
+                                    seedPredictor = seedPredictor,
+                                    roiPredictor = roiPredictor,
+                                    network = SharedViewModel.getInstance(this@FuzzyAndResultScreen).network
+                                )
+
+                                // Use gRPC volume estimation
+                                cancerVolume = volumeEstimator.estimateVolumeGrpc(
+                                    mriSeq = tumorMriSequence,
+                                    alphaCutValue = currentAlphaCutValue
+                                )
+
+                                elapsed = System.currentTimeMillis() - startTime
+                            }
                             withContext(Dispatchers.Main) {
                                 loadingOverlay.visibility = View.GONE
                                 fuzzyCalculateButton.isEnabled = true
                                 resultsRecalculateButton.isEnabled = true
-                                resultsTumorVolume.text = "Tumor Volume: ${cancerVolume.volume} mm³"
-                                resultsPatientName.text = "$selectedMode Computation Time: ${elapsed}ms"
+                                resultsTumorVolume.text =
+                                    "Tumor Volume: ${cancerVolume.volume} mm³"
+                                resultsPatientName.text =
+                                    "$selectedMode Computation Time: ${elapsed}ms"
                                 showResultsLayout()
                                 loadCurrentResultsImage(resultsMriImage)
                             }
