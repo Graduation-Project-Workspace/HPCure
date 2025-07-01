@@ -63,6 +63,7 @@ class SeedScreen : AppCompatActivity() {
     private var seedList: Array<Pair<Int, Int>> = emptyArray()
     private val context = this
     private var sliceIndex = 0
+    private var isGPUEnabled = true
 
     private val storagePermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -159,6 +160,7 @@ class SeedScreen : AppCompatActivity() {
         }
 
         setMode("Parallel")
+        toggleGpu()
         predictButton.text = "Predict Seed"
 
         if (FileManager.getAllFiles().isNotEmpty()) {
@@ -193,6 +195,7 @@ class SeedScreen : AppCompatActivity() {
 
         btnParallel.setOnClickListener { setMode("Parallel") }
         btnSerial.setOnClickListener { setMode("Sequential") }
+        btnGpu.setOnClickListener { toggleGpu() }
     }
 
     private fun setMode(mode: String) {
@@ -204,6 +207,12 @@ class SeedScreen : AppCompatActivity() {
 
         btnSerial.setBackgroundColor(Color.parseColor(if (mode == "Sequential") "#B0BEC5" else "#455A64"))
         btnSerial.setTextColor(Color.parseColor(if (mode == "Sequential") "#000000" else "#FFFFFF"))
+    }
+
+    private fun toggleGpu() {
+        isGPUEnabled = !isGPUEnabled
+        btnGpu.setBackgroundColor(Color.parseColor(if (isGPUEnabled) "#B0BEC5" else "#455A64"))
+        btnGpu.setTextColor(Color.parseColor(if (isGPUEnabled) "#000000" else "#FFFFFF"))
     }
 
     private fun setupBackButton() {
@@ -230,10 +239,19 @@ class SeedScreen : AppCompatActivity() {
             CoroutineScope(Dispatchers.IO).launch {
                 val startTime = System.currentTimeMillis()
 
-                seedList = seedPredictor.predictSeed(
-                    mriSeq = tumorMriSequence,
-                    roiList = tumorRoiList
-                )
+                try {
+                    seedList = seedPredictor.predictSeed(
+                        mriSeq = tumorMriSequence,
+                        roiList = tumorRoiList,
+                        useGpuDelegate = isGPUEnabled
+                    )
+                } catch (e: Exception) {
+                    withContext(Dispatchers.Main) {
+                        hideLoadingState()
+                        Toast.makeText(context, "Error predicting seeds: ${e.message}", Toast.LENGTH_LONG).show()
+                        return@withContext
+                    }
+                }
 
                 val endTime = System.currentTimeMillis()
                 val timeTaken = endTime - startTime

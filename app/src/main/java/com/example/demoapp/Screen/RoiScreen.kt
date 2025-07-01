@@ -63,6 +63,7 @@ class RoiScreen : AppCompatActivity() {
     private var tumorRoiList: List<ROI> = emptyList()
     private var sliceIndex = 0
     private val context = this
+    private var isGPUEnabled = true
 
     private val storagePermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -145,6 +146,7 @@ class RoiScreen : AppCompatActivity() {
         }
 
         setMode("Parallel")
+        toggleGpu()
 
         if (FileManager.getAllFiles().isNotEmpty()) {
             setupImageNavigation()
@@ -178,6 +180,7 @@ class RoiScreen : AppCompatActivity() {
 
         btnParallel.setOnClickListener { setMode("Parallel") }
         btnSerial.setOnClickListener { setMode("Serial") }
+        btnGpu.setOnClickListener { toggleGpu() }
     }
 
     private fun setMode(mode: String) {
@@ -189,6 +192,12 @@ class RoiScreen : AppCompatActivity() {
 
         btnSerial.setBackgroundColor(Color.parseColor(if (mode == "Serial") "#B0BEC5" else "#455A64"))
         btnSerial.setTextColor(Color.parseColor(if (mode == "Serial") "#000000" else "#FFFFFF"))
+    }
+
+    private fun toggleGpu() {
+        isGPUEnabled = !isGPUEnabled
+        btnGpu.setBackgroundColor(Color.parseColor(if (isGPUEnabled) "#B0BEC5" else "#455A64"))
+        btnGpu.setTextColor(Color.parseColor(if (isGPUEnabled) "#000000" else "#FFFFFF"))
     }
 
     private fun setupBackButton() {
@@ -209,7 +218,19 @@ class RoiScreen : AppCompatActivity() {
             showLoadingState()
             CoroutineScope(Dispatchers.IO).launch {
                 val startTime = System.currentTimeMillis()
-                roiList = roiPredictor.predictRoi(originalMriSequence)
+                try {
+                    roiList = roiPredictor.predictRoi(
+                        mriSequence = originalMriSequence,
+                        useGpuDelegate = isGPUEnabled
+                    )
+                } catch (e: Exception) {
+                    Log.e("RoiScreen", "Error during ROI prediction: ${e.message}")
+                    withContext(Dispatchers.Main) {
+                        hideLoadingState()
+                        Toast.makeText(context, "Error during ROI prediction: ${e.message}", Toast.LENGTH_LONG).show()
+                        return@withContext
+                    }
+                }
                 tumorMriSequence.images = emptyList()
                 for ((index, roi) in roiList.withIndex()) {
                     if (roi.score > 0.3) {

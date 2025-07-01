@@ -1,7 +1,6 @@
 package com.example.demoapp.Screen
 
 import android.Manifest
-import android.app.AlertDialog
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
@@ -19,11 +18,11 @@ import android.widget.*
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
-import com.example.demoapp.Core.ParallelFuzzySystem
-import com.example.demoapp.Core.ParallelRoiPredictor
-import com.example.demoapp.Core.ParallelSeedPredictor
-import com.example.demoapp.Core.SerialFuzzySystem
+import com.example.demoapp.Core.*
 import com.example.demoapp.R
 import com.example.demoapp.Utils.FileManager
 import com.example.domain.interfaces.tumor.IFuzzySystem
@@ -34,22 +33,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.viewinterop.AndroidView
-import com.example.demoapp.Core.VolumeEstimator
-import com.example.domain.interfaces.network.INetworkService
-
-object FuzzyResultsHolder {
-    var mriSequence: MRISequence? = null
-    var cancerVolume: CancerVolume? = null
-    var alphaCut: Float = 0f
-    var roiList: List<ROI>? = null
-    var seedList: Array<Pair<Int, Int>>? = null
-    var computationStartTime: Long = 0L
-    var computationEndTime: Long = 0L
-}
 
 @RequiresApi(Build.VERSION_CODES.N)
 class FuzzyAndResultScreen : BaseActivity() {
@@ -85,7 +68,7 @@ class FuzzyAndResultScreen : BaseActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        android.util.Log.d("FuzzyAndResultScreen", "onCreate called for FuzzyAndResultScreen")
+        Log.d("FuzzyAndResultScreen", "onCreate called for FuzzyAndResultScreen")
         super.onCreate(savedInstanceState)
         // setContentView(R.layout.fuzzy_and_result_screen) // Removed to allow Compose setContent
 
@@ -124,7 +107,6 @@ class FuzzyAndResultScreen : BaseActivity() {
             images = bitmaps,
             metadata = FileManager.getDicomMetadata()
         )
-        FuzzyResultsHolder.mriSequence = mriSequence
         tumorMriSequence = MRISequence(
             images = emptyList(),
             metadata = FileManager.getDicomMetadata()

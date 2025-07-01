@@ -13,7 +13,7 @@ interface IRoiPredictor {
 
     fun predictRoi(
         mriSequence: MRISequence,
-        useGpuDelegate : Boolean = true,
+        useGpuDelegate : Boolean = false,
         useAndroidNN : Boolean = true,
         numThreads : Int = 4) : List<ROI>
 }
