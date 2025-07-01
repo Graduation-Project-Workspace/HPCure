@@ -396,6 +396,44 @@
                     android:adjustViewBounds="true"/>
             </RelativeLayout>
 
+            <!-- Mode buttons moved here - below image container and above recalculate button -->
+            <LinearLayout
+                android:id="@+id/results_mode_buttons"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginVertical="16dp"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/results_btn_parallel"
+                    android:layout_width="100dp"
+                    android:layout_height="36dp"
+                    android:text="Parallel"
+                    android:textStyle="bold"
+                    android:background="@drawable/button_background"
+                    android:textColor="#000000" />
+
+                <Button
+                    android:id="@+id/results_btn_serial"
+                    android:layout_width="100dp"
+                    android:layout_height="36dp"
+                    android:text="Serial"
+                    android:textStyle="bold"
+                    android:background="@drawable/button_background"
+                    android:textColor="#FFFFFF"
+                    android:layout_marginStart="4dp"
+                    android:layout_marginEnd="4dp" />
+
+                <Button
+                    android:id="@+id/results_btn_grpc"
+                    android:layout_width="100dp"
+                    android:layout_height="36dp"
+                    android:text="GRPC"
+                    android:textStyle="bold"
+                    android:background="@drawable/button_background"
+                    android:textColor="#000000" />
+            </LinearLayout>
+
             <Button
                 android:id="@+id/results_recalculate_button"
                 android:layout_width="220dp"

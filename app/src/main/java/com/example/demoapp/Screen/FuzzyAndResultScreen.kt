@@ -326,13 +326,31 @@ class FuzzyAndResultScreen : BaseActivity() {
 
                 fun setMode(mode: String) {
                     selectedMode = mode
-                    fuzzySystem = if (mode == "Parallel") parallelFuzzySystem else sequentialFuzzySystem
+                    fuzzySystem = when (mode) {
+                        "Parallel" -> parallelFuzzySystem
+                        "Serial" -> sequentialFuzzySystem
+                        else -> parallelFuzzySystem
+                    }
+
 
                     btnParallel.setBackgroundColor(Color.parseColor(if (mode == "Parallel") "#B0BEC5" else "#455A64"))
                     btnParallel.setTextColor(Color.parseColor(if (mode == "Parallel") "#000000" else "#FFFFFF"))
 
                     btnSerial.setBackgroundColor(Color.parseColor(if (mode == "Serial") "#B0BEC5" else "#455A64"))
                     btnSerial.setTextColor(Color.parseColor(if (mode == "Serial") "#000000" else "#FFFFFF"))
+
+                    val resultsBtnParallel = view.findViewById<Button>(R.id.results_btn_parallel)
+                    val resultsBtnSerial = view.findViewById<Button>(R.id.results_btn_serial)
+                    val resultsBtnGrpc = view.findViewById<Button>(R.id.results_btn_grpc)
+
+                    resultsBtnParallel.setBackgroundColor(Color.parseColor(if (mode == "Parallel") "#B0BEC5" else "#455A64"))
+                    resultsBtnParallel.setTextColor(Color.parseColor(if (mode == "Parallel") "#000000" else "#FFFFFF"))
+
+                    resultsBtnSerial.setBackgroundColor(Color.parseColor(if (mode == "Serial") "#B0BEC5" else "#455A64"))
+                    resultsBtnSerial.setTextColor(Color.parseColor(if (mode == "Serial") "#000000" else "#FFFFFF"))
+
+                    resultsBtnGrpc.setBackgroundColor(Color.parseColor(if (mode == "GRPC") "#B0BEC5" else "#455A64"))
+                    resultsBtnGrpc.setTextColor(Color.parseColor(if (mode == "GRPC") "#000000" else "#FFFFFF"))
                 }
 
                 fun performRecalculation() {
@@ -365,7 +383,7 @@ class FuzzyAndResultScreen : BaseActivity() {
                                 fuzzyCalculateButton.isEnabled = true
                                 resultsRecalculateButton.isEnabled = true
                                 resultsTumorVolume.text = "Tumor Volume: ${cancerVolume.volume} mm³"
-                                resultsPatientName.text = "gRPC Computation Time: ${elapsed}ms"
+                                resultsPatientName.text = "$selectedMode Computation Time: ${elapsed}ms"
                                 showResultsLayout()
                                 loadCurrentResultsImage(resultsMriImage)
                             }
@@ -398,9 +416,17 @@ class FuzzyAndResultScreen : BaseActivity() {
                     fuzzyAlphaCutValue.text = "%.2f%%".format(currentAlphaCutValue)
                 }
 
-                // Set up mode buttons
                 btnParallel.setOnClickListener { setMode("Parallel") }
                 btnSerial.setOnClickListener { setMode("Serial") }
+
+                val resultsBtnParallel = view.findViewById<Button>(R.id.results_btn_parallel)
+                val resultsBtnSerial = view.findViewById<Button>(R.id.results_btn_serial)
+                val resultsBtnGrpc = view.findViewById<Button>(R.id.results_btn_grpc)
+
+                resultsBtnParallel.setOnClickListener { setMode("Parallel") }
+                resultsBtnSerial.setOnClickListener { setMode("Serial") }
+                resultsBtnGrpc.setOnClickListener { setMode("GRPC") }
+
 
                 // Set up recalculate button
                 resultsRecalculateButton.setOnClickListener {
