@@ -161,14 +161,6 @@ class FuzzyAndResultScreen : BaseActivity() {
         }
     }
 
-    private fun showFuzzyLayout() {
-        // This will be handled in the AndroidView context
-    }
-
-    private fun showResultsLayout() {
-        // This will be handled in the AndroidView context
-    }
-
     private fun setMode(mode: String) {
         selectedMode = mode
         fuzzySystem = if (mode == "Parallel") parallelFuzzySystem else sequentialFuzzySystem
@@ -176,18 +168,7 @@ class FuzzyAndResultScreen : BaseActivity() {
         // Update button colors - this will be handled in the AndroidView context
     }
 
-    private fun navigateImage(direction: Int) {
-        sliceIndex += direction
-        // updateImageCount() and loadCurrentImage() will be handled in the AndroidView context
-    }
 
-    private fun loadCurrentImage() {
-        // This will be handled in the AndroidView context
-    }
-
-    private fun loadCurrentResultsImage() {
-        // This will be handled in the AndroidView context
-    }
 
     private fun highlightCancerArea(bitmap: Bitmap, sliceIndex: Int): Bitmap {
         val mutableBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true)
@@ -209,14 +190,6 @@ class FuzzyAndResultScreen : BaseActivity() {
             }
         }
         return mutableBitmap
-    }
-
-    private fun showLoadingState() {
-        // This will be handled in the AndroidView context
-    }
-
-    private fun hideLoadingState() {
-        // This will be handled in the AndroidView context
     }
 
     private fun drawNormalizedRoiOnly(bitmap: Bitmap, roi: ROI): Bitmap {
@@ -267,16 +240,46 @@ class FuzzyAndResultScreen : BaseActivity() {
         return mutableBitmap
     }
 
-    private fun updateImageCount() {
-        // This will be handled in the AndroidView context
+    fun updateImageCount(fuzzyImageCount: TextView, resultsImageCount: TextView) {
+        val countText = "${sliceIndex + 1}/${tumorMriSequence.images.size}"
+        fuzzyImageCount.text = countText
+        resultsImageCount.text = countText
     }
 
-    private fun updateNavigationButtons() {
-        // This will be handled in the AndroidView context
+    fun updateNavigationButtons(fuzzyPrevImage: ImageButton, fuzzyNextImage: ImageButton, resultsPrevImage: ImageButton, resultsNextImage: ImageButton) {
+        val currentIndex = sliceIndex + 1
+        val totalFiles = tumorMriSequence.images.size
+
+        // Update fuzzy navigation
+        fuzzyPrevImage.visibility = if (currentIndex > 1) View.VISIBLE else View.INVISIBLE
+        fuzzyNextImage.visibility = if (currentIndex < totalFiles) View.VISIBLE else View.INVISIBLE
+
+        // Update results navigation
+        resultsPrevImage.visibility = if (currentIndex > 1) View.VISIBLE else View.INVISIBLE
+        resultsNextImage.visibility = if (currentIndex < totalFiles) View.VISIBLE else View.INVISIBLE
     }
 
-    private fun updateAlphaCutDisplay() {
-        // This will be handled in the AndroidView context
+    fun loadCurrentImage(fuzzyMriImage: ImageView, fuzzyPrevImage: ImageButton, fuzzyNextImage: ImageButton, resultsPrevImage: ImageButton, resultsNextImage: ImageButton) {
+        val displayBitmap = when {
+            sliceIndex < tumorRoiList.size && sliceIndex < seedList.size -> {
+                drawSeedPointInsideNormalizedRoi(tumorMriSequence.images[sliceIndex], tumorRoiList[sliceIndex], seedList[sliceIndex])
+            }
+            sliceIndex < tumorRoiList.size -> {
+                drawNormalizedRoiOnly(tumorMriSequence.images[sliceIndex], roiList[sliceIndex])
+            }
+            else -> {
+                tumorMriSequence.images[sliceIndex]
+            }
+        }
+        fuzzyMriImage.setImageBitmap(displayBitmap)
+        updateNavigationButtons(fuzzyPrevImage, fuzzyNextImage, resultsPrevImage, resultsNextImage)
+    }
+
+    fun loadCurrentResultsImage(resultsMriImage: ImageView) {
+        if (::cancerVolume.isInitialized) {
+            val displayBitmap = highlightCancerArea(tumorMriSequence.images[sliceIndex], sliceIndex)
+            resultsMriImage.setImageBitmap(displayBitmap)
+        }
     }
 
     override fun getMainContent(): @Composable () -> Unit = {
@@ -364,7 +367,7 @@ class FuzzyAndResultScreen : BaseActivity() {
                                 resultsTumorVolume.text = "Tumor Volume: ${cancerVolume.volume} mm³"
                                 resultsPatientName.text = "gRPC Computation Time: ${elapsed}ms"
                                 showResultsLayout()
-                                loadCurrentResultsImage()
+                                loadCurrentResultsImage(resultsMriImage)
                             }
                         } catch (e: Exception) {
                             Log.e("FuzzyAndResultScreen", "Error in gRPC volume estimation", e)
@@ -379,54 +382,16 @@ class FuzzyAndResultScreen : BaseActivity() {
                 }
 
                 fun navigateImage(direction: Int) {
-                    sliceIndex += direction
-                    updateImageCount()
-                    loadCurrentImage()
-                    if (resultsLayout.visibility == View.VISIBLE) {
-                        loadCurrentResultsImage()
-                    }
-                }
-
-                fun loadCurrentImage() {
-                    val displayBitmap = when {
-                        sliceIndex < tumorRoiList.size && sliceIndex < seedList.size -> {
-                            drawSeedPointInsideNormalizedRoi(tumorMriSequence.images[sliceIndex], tumorRoiList[sliceIndex], seedList[sliceIndex])
-                        }
-                        sliceIndex < tumorRoiList.size -> {
-                            drawNormalizedRoiOnly(tumorMriSequence.images[sliceIndex], roiList[sliceIndex])
-                        }
-                        else -> {
-                            tumorMriSequence.images[sliceIndex]
+                    val totalSlices = tumorMriSequence.images.size
+                    val newIndex = (sliceIndex + direction).coerceIn(0, totalSlices - 1)
+                    if (newIndex != sliceIndex) {
+                        sliceIndex = newIndex
+                        updateImageCount(fuzzyImageCount, resultsImageCount)
+                        loadCurrentImage(fuzzyMriImage, fuzzyPrevImage, fuzzyNextImage, resultsPrevImage, resultsNextImage)
+                        if (resultsLayout.visibility == View.VISIBLE) {
+                            loadCurrentResultsImage(resultsMriImage)
                         }
                     }
-                    fuzzyMriImage.setImageBitmap(displayBitmap)
-                    updateNavigationButtons()
-                }
-
-                fun loadCurrentResultsImage() {
-                    if (::cancerVolume.isInitialized) {
-                        val displayBitmap = highlightCancerArea(tumorMriSequence.images[sliceIndex], sliceIndex)
-                        resultsMriImage.setImageBitmap(displayBitmap)
-                    }
-                }
-
-                fun updateImageCount() {
-                    val countText = "${sliceIndex + 1}/${tumorMriSequence.images.size}"
-                    fuzzyImageCount.text = countText
-                    resultsImageCount.text = countText
-                }
-
-                fun updateNavigationButtons() {
-                    val currentIndex = sliceIndex + 1
-                    val totalFiles = tumorMriSequence.images.size
-
-                    // Update fuzzy navigation
-                    fuzzyPrevImage.visibility = if (currentIndex > 1) View.VISIBLE else View.INVISIBLE
-                    fuzzyNextImage.visibility = if (currentIndex < totalFiles) View.VISIBLE else View.INVISIBLE
-
-                    // Update results navigation
-                    resultsPrevImage.visibility = if (currentIndex > 1) View.VISIBLE else View.INVISIBLE
-                    resultsNextImage.visibility = if (currentIndex < totalFiles) View.VISIBLE else View.INVISIBLE
                 }
 
                 fun updateAlphaCutDisplay() {
@@ -513,7 +478,7 @@ class FuzzyAndResultScreen : BaseActivity() {
                             resultsTumorVolume.text = "Tumor Volume: ${cancerVolume.volume} mm³"
                             resultsPatientName.text = "Total Time: ${totalTime}ms"
                             showResultsLayout()
-                            loadCurrentResultsImage()
+                            loadCurrentResultsImage(resultsMriImage)
                         }
                     }
                 }
@@ -534,8 +499,8 @@ class FuzzyAndResultScreen : BaseActivity() {
 
                 // Initial setup
                 setMode("Parallel")
-                loadCurrentImage()
-                updateImageCount()
+                loadCurrentImage(fuzzyMriImage, fuzzyPrevImage, fuzzyNextImage, resultsPrevImage, resultsNextImage)
+                updateImageCount(fuzzyImageCount, resultsImageCount)
                 showFuzzyLayout()
 
                 view
