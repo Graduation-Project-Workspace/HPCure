@@ -7,8 +7,9 @@
 
     <style name="Theme.DemoApp" parent="Base.Theme.DemoApp" />
 
-    <style name="Theme.DemoApp.Splash" parent="Theme.Material3.DayNight">
+    <style name="Theme.DemoApp.Splash" parent="Theme.Material3.DayNight.NoActionBar">
         <!-- Background color -->
+        <item name="android:windowBackground">@color/splash_background</item>
         <item name="windowSplashScreenBackground">@color/splash_background</item>
 
         <!-- Animated splash icon -->
