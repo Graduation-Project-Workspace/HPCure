@@ -46,8 +46,6 @@ class SeedScreen : AppCompatActivity() {
     private lateinit var btnGpu: Button
     private lateinit var mainContent: RelativeLayout
     private lateinit var patientName: TextView
-    private lateinit var confirmButton: Button
-    private lateinit var customizeButton: Button
 
     private lateinit var seedPredictor: ISeedPredictor
     private lateinit var parallelSeedPredictor: ParallelSeedPredictor
@@ -102,19 +100,6 @@ class SeedScreen : AppCompatActivity() {
             return
         }
 
-        val bitmaps = FileManager.getAllFiles().mapNotNull { file ->
-            FileManager.getProcessedImage(this, file)
-        }
-        originalMriSequence = MRISequence(images = bitmaps, metadata = FileManager.getDicomMetadata())
-        tumorMriSequence = MRISequence(images = emptyList(), metadata = FileManager.getDicomMetadata())
-
-        for ((index, roi) in roiList.withIndex()) {
-            if (roi.score > 0.3) {
-                tumorMriSequence.images+= originalMriSequence.images[index]
-                tumorRoiList+= roi
-            }
-        }
-
         if (checkStoragePermission()) {
             initializeApp()
         } else {
@@ -161,19 +146,39 @@ class SeedScreen : AppCompatActivity() {
 
         setMode("Parallel")
         toggleGpu()
-        predictButton.text = "Predict Seed"
 
-        if (FileManager.getAllFiles().isNotEmpty()) {
-            setupImageNavigation()
-            loadCurrentImage()
-            updateImageCount()
-        } else {
-            Toast.makeText(this, "No images available to display", Toast.LENGTH_SHORT).show()
-            predictButton.isEnabled = false
+        showLoadingState()
+        CoroutineScope(Dispatchers.IO).launch {
+            val bitmaps = FileManager.getAllFiles().mapNotNull { file ->
+                FileManager.getProcessedImage(this@SeedScreen, file)
+            }
+            originalMriSequence = MRISequence(images = bitmaps, metadata = FileManager.getDicomMetadata())
+            tumorMriSequence = MRISequence(images = emptyList(), metadata = FileManager.getDicomMetadata())
+
+            for ((index, roi) in roiList.withIndex()) {
+                if (roi.score > 0.3) {
+                    tumorMriSequence.images+= originalMriSequence.images[index]
+                    tumorRoiList+= roi
+                }
+            }
+
+            withContext(Dispatchers.Main) {
+                hideLoadingState()
+                predictButton.text = "Predict Seed"
+
+                if (FileManager.getAllFiles().isNotEmpty()) {
+                    setupImageNavigation()
+                    loadCurrentImage()
+                    updateImageCount()
+                } else {
+                    Toast.makeText(this@SeedScreen, "No images available to display", Toast.LENGTH_SHORT).show()
+                    predictButton.isEnabled = false
+                }
+            }
         }
+
         setupPredictButton()
         setupBackButton()
-        setupConfirmButton()
     }
 
     private fun initializeViews() {
@@ -189,9 +194,6 @@ class SeedScreen : AppCompatActivity() {
         btnSerial = findViewById(R.id.btn_serial)
         btnGpu = findViewById(R.id.btn_gpu)
         patientName = findViewById(R.id.patient_name)
-        confirmButton = findViewById(R.id.confirm_roi_button)
-        confirmButton.text = "Confirm Seed"
-        customizeButton = findViewById(R.id.customize_button)
 
         btnParallel.setOnClickListener { setMode("Parallel") }
         btnSerial.setOnClickListener { setMode("Sequential") }
@@ -227,9 +229,6 @@ class SeedScreen : AppCompatActivity() {
 
     private fun setupPredictButton() {
         predictButton.setOnClickListener {
-            //btnGpu.visibility = View.GONE
-            //btnParallel.visibility = View.GONE
-            //btnSerial.visibility = View.GONE
 
             if (roiList.isEmpty()) {
                 Toast.makeText(this, "No ROI received! Please return to ROI screen.", Toast.LENGTH_LONG).show()
@@ -257,28 +256,17 @@ class SeedScreen : AppCompatActivity() {
                 val timeTaken = endTime - startTime
 
                 withContext(Dispatchers.Main) {
+                    val intent = Intent(this@SeedScreen, FuzzyAndResultScreen::class.java).apply {
+                        putExtra("seed_list", seedList)
+                        putExtra("roi_list", ArrayList(roiList))
+                        putExtra("roi_time_taken", roiTimeTaken)
+                        putExtra("seed_time_taken", timeTaken)
+                        putExtra("shouldCleanup", false)
+                    }
+                    startActivity(intent)
                     hideLoadingState()
-                    loadCurrentImage()
-                    patientName.text = "Time Taken: $timeTaken ms"
-                    confirmButton.visibility = View.VISIBLE
-                    customizeButton.visibility = View.VISIBLE
-                    predictButton.text = "Re-Predict Seed"
                 }
             }
-        }
-    }
-
-    private fun setupConfirmButton() {
-        confirmButton.setOnClickListener {
-            val seedTimeTaken = patientName.text.toString().replace("Time Taken: ", "").replace(" ms", "").toLong()
-            val intent = Intent(this, FuzzyAndResultScreen::class.java).apply {
-                putExtra("seed_list", seedList)
-                putExtra("roi_list", ArrayList(roiList))
-                putExtra("roi_time_taken", roiTimeTaken)
-                putExtra("seed_time_taken", seedTimeTaken)
-                putExtra("shouldCleanup", false)
-            }
-            startActivity(intent)
         }
     }
 

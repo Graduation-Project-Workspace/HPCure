@@ -6,10 +6,10 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.util.Log
 import androidx.core.graphics.scale
+import com.example.demoapp.Utils.GpuDelegateHelper
 import com.example.domain.interfaces.tumor.ISeedPredictor
 import com.example.domain.model.MRISequence
 import com.example.domain.model.ROI
-import com.example.demoapp.Utils.GpuDelegateHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -42,6 +42,7 @@ class ParallelSeedPredictor : ISeedPredictor {
                 addDelegate(GpuDelegateHelper().createGpuDelegate())
             }
             useNNAPI = useAndroidNN
+            setUseXNNPACK(false)
             setNumThreads(numThreads)
         }
 

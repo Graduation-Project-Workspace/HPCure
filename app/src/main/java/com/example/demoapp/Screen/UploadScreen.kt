@@ -8,7 +8,10 @@ import android.os.Bundle
 import android.provider.DocumentsContract
 import android.util.Log
 import android.view.View
-import android.widget.*
+import android.widget.FrameLayout
+import android.widget.ImageView
+import android.widget.RelativeLayout
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.example.demoapp.R
 import com.example.demoapp.Utils.FileManager

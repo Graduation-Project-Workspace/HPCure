@@ -47,8 +47,6 @@ class RoiScreen : AppCompatActivity() {
     private lateinit var btnGpu: Button
     private lateinit var mainContent: RelativeLayout
     private lateinit var patientName: TextView
-    private lateinit var confirmButton: Button
-    private lateinit var customizeButton: Button
 
     private lateinit var roiPredictor: IRoiPredictor
     private lateinit var parallelRoiPredictor: ParallelRoiPredictor
@@ -92,12 +90,6 @@ class RoiScreen : AppCompatActivity() {
             finish()
             return
         }
-
-        val bitmaps = FileManager.getAllFiles().mapNotNull { file ->
-            FileManager.getProcessedImage(this, file)
-        }
-        originalMriSequence = MRISequence(images = bitmaps, metadata = FileManager.getDicomMetadata())
-        tumorMriSequence = MRISequence(images = bitmaps, metadata = FileManager.getDicomMetadata())
 
         if (checkStoragePermission()) {
             initializeApp()
@@ -148,17 +140,29 @@ class RoiScreen : AppCompatActivity() {
         setMode("Parallel")
         toggleGpu()
 
-        if (FileManager.getAllFiles().isNotEmpty()) {
-            setupImageNavigation()
-            loadCurrentImage()
-            updateImageCount()
-        } else {
-            Toast.makeText(this, "No images available to display", Toast.LENGTH_SHORT).show()
-            predictButton.isEnabled = false
+        showLoadingState()
+        CoroutineScope(Dispatchers.IO).launch {
+            val bitmaps = FileManager.getAllFiles().mapNotNull { file ->
+                FileManager.getProcessedImage(this@RoiScreen, file)
+            }
+            originalMriSequence = MRISequence(images = bitmaps, metadata = FileManager.getDicomMetadata())
+            tumorMriSequence = MRISequence(images = bitmaps, metadata = FileManager.getDicomMetadata())
+            withContext(Dispatchers.Main) {
+                hideLoadingState()
+
+                if (FileManager.getAllFiles().isNotEmpty()) {
+                    setupImageNavigation()
+                    loadCurrentImage()
+                    updateImageCount()
+                } else {
+                    Toast.makeText(this@RoiScreen, "No images available to display", Toast.LENGTH_SHORT).show()
+                    predictButton.isEnabled = false
+                }
+            }
         }
+
         setupPredictButton()
         setupBackButton()
-        setupConfirmButton()
     }
 
     private fun initializeViews() {
@@ -174,9 +178,6 @@ class RoiScreen : AppCompatActivity() {
         btnSerial = findViewById(R.id.btn_serial)
         btnGpu = findViewById(R.id.btn_gpu)
         patientName = findViewById(R.id.patient_name)
-        confirmButton = findViewById(R.id.confirm_roi_button)
-        confirmButton.text = "Confirm ROI"
-        customizeButton = findViewById(R.id.customize_button)
 
         btnParallel.setOnClickListener { setMode("Parallel") }
         btnSerial.setOnClickListener { setMode("Serial") }
@@ -211,10 +212,6 @@ class RoiScreen : AppCompatActivity() {
 
     private fun setupPredictButton() {
         predictButton.setOnClickListener {
-            //btnGpu.visibility = View.GONE
-            //btnParallel.visibility = View.GONE
-            //btnSerial.visibility = View.GONE
-
             showLoadingState()
             CoroutineScope(Dispatchers.IO).launch {
                 val startTime = System.currentTimeMillis()
@@ -244,26 +241,13 @@ class RoiScreen : AppCompatActivity() {
                 val timeTaken = endTime - startTime
 
                 withContext(Dispatchers.Main) {
-                    updateImageCount()
-                    updateNavigationButtons()
-                    hideLoadingState()
-                    loadCurrentImage()
-                    patientName.text = "Time Taken: $timeTaken ms"
-                    confirmButton.visibility = View.VISIBLE
-                    customizeButton.visibility = View.VISIBLE
-                    predictButton.text = "Re-Predict ROI"
+                    val intent = Intent(context, SeedScreen::class.java)
+                    intent.putExtra("roi_list", ArrayList(roiList))
+                    intent.putExtra("roi_time_taken", timeTaken)
+                    intent.putExtra("shouldCleanup", false)
+                    startActivity(intent)
                 }
             }
-        }
-    }
-
-    private fun setupConfirmButton() {
-        confirmButton.setOnClickListener {
-            val intent = Intent(this, SeedScreen::class.java)
-            intent.putExtra("roi_list", ArrayList(roiList))
-            intent.putExtra("roi_time_taken", patientName.text.toString().replace("Time Taken: ", "").replace(" ms", "").toLong())
-            intent.putExtra("shouldCleanup", false)
-            startActivity(intent)
         }
     }
 

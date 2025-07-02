@@ -168,26 +168,8 @@
                         android:background="@drawable/button_background"
                         android:layout_marginBottom="8dp" />
 
-                    <Button
-                        android:id="@+id/customize_button"
-                        android:layout_width="220dp"
-                        android:layout_height="48dp"
-                        android:text="Customize"
-                        android:textColor="#000000"
-                        android:textStyle="bold"
-                        android:background="@drawable/button_background"
-                        android:visibility="gone"/>
                 </LinearLayout>
 
-                <Button
-                    android:id="@+id/confirm_roi_button"
-                    android:layout_width="100dp"
-                    android:layout_height="match_parent"
-                    android:text=""
-                    android:textColor="#000000"
-                    android:textStyle="bold"
-                    android:background="@drawable/button_background"
-                    android:visibility="gone" />
             </LinearLayout>
         </RelativeLayout>
 
