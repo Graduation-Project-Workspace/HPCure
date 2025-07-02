@@ -152,25 +152,39 @@
                 android:layout_marginBottom="32dp"
                 android:orientation="horizontal">
 
-                <LinearLayout
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:layout_marginEnd="12dp">
+                <Button
+                    android:id="@+id/predict_button"
+                    android:layout_width="160dp"
+                    android:layout_height="48dp"
+                    android:text="RE-PREDICT"
+                    android:textColor="#000000"
+                    android:textStyle="bold"
+                    android:background="@drawable/button_background"
+                    android:layout_marginEnd="12dp" />
 
-                    <Button
-                        android:id="@+id/predict_button"
-                        android:layout_width="220dp"
-                        android:layout_height="48dp"
-                        android:text="PREDICT ROI"
-                        android:textColor="#000000"
-                        android:textStyle="bold"
-                        android:background="@drawable/button_background"
-                        android:layout_marginBottom="8dp" />
-
-                </LinearLayout>
-
+                <Button
+                    android:id="@+id/next_button"
+                    android:layout_width="120dp"
+                    android:layout_height="48dp"
+                    android:text="NEXT"
+                    android:textColor="#FFFFFF"
+                    android:textStyle="bold"
+                    android:background="@drawable/button_background" />
             </LinearLayout>
+
+            <!-- Report Section -->
+            <LinearLayout
+                android:id="@+id/report_container"
+                android:layout_width="wrap_content"
+                android:layout_height="220dp"
+                android:layout_centerHorizontal="true"
+                android:layout_alignParentBottom="true"
+                android:layout_marginBottom="220dp"
+                android:layout_marginHorizontal="16dp"
+                android:orientation="vertical"
+                android:background="#071E22"
+                android:padding="12dp"
+                android:gravity="center_horizontal"/>
         </RelativeLayout>
 
         <!-- Content Container -->

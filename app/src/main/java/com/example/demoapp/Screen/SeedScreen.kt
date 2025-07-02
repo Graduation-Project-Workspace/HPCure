@@ -23,6 +23,8 @@ import com.example.demoapp.Core.SequentialSeedPredictor
 import com.example.demoapp.R
 import com.example.demoapp.Utils.FileManager
 import com.example.demoapp.Utils.GpuDelegateHelper
+import com.example.demoapp.Utils.ResultsDataHolder
+import com.example.demoapp.Utils.ReportEntry
 import com.example.domain.interfaces.tumor.ISeedPredictor
 import com.example.domain.model.MRISequence
 import com.example.domain.model.ROI
@@ -62,6 +64,7 @@ class SeedScreen : AppCompatActivity() {
     private val context = this
     private var sliceIndex = 0
     private var isGPUEnabled = true
+    private var hasPredicted = false
 
     private val storagePermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -104,6 +107,31 @@ class SeedScreen : AppCompatActivity() {
             initializeApp()
         } else {
             requestStoragePermission()
+        }
+
+        val predictButton = findViewById<Button>(R.id.predict_button)
+        val nextButton = findViewById<Button>(R.id.next_button)
+        predictButton.text = "PREDICT SEED"
+        hasPredicted = false
+        nextButton.isEnabled = false
+
+        // Add ROI report entry if passed from previous screen and not present
+        val roiTime = intent.getLongExtra("roi_time_taken", -1)
+        val roiMode = if (intent.getStringExtra("roi_mode") != null) intent.getStringExtra("roi_mode")!! else "Parallel"
+        if (roiTime > 0 && ResultsDataHolder.reportEntries.none { it.step == "ROI" }) {
+            ResultsDataHolder.addOrUpdateReportEntry("ROI", roiMode, roiTime)
+        }
+        updateReportUI()
+
+        nextButton.setOnClickListener {
+            val intent = Intent(this, FuzzyAndResultScreen::class.java).apply {
+                putExtra("seed_list", seedList)
+                putExtra("roi_list", ArrayList(roiList))
+                putExtra("roi_time_taken", roiTimeTaken)
+                putExtra("seed_time_taken", ResultsDataHolder.reportEntries.findLast { it.step == "Seed" }?.parallelTime ?: 0)
+                putExtra("shouldCleanup", false)
+            }
+            startActivity(intent)
         }
     }
 
@@ -164,8 +192,6 @@ class SeedScreen : AppCompatActivity() {
 
             withContext(Dispatchers.Main) {
                 hideLoadingState()
-                predictButton.text = "Predict Seed"
-
                 if (FileManager.getAllFiles().isNotEmpty()) {
                     setupImageNavigation()
                     loadCurrentImage()
@@ -196,7 +222,7 @@ class SeedScreen : AppCompatActivity() {
         patientName = findViewById(R.id.patient_name)
 
         btnParallel.setOnClickListener { setMode("Parallel") }
-        btnSerial.setOnClickListener { setMode("Sequential") }
+        btnSerial.setOnClickListener { setMode("Serial") }
         btnGpu.setOnClickListener { toggleGpu() }
     }
 
@@ -207,8 +233,8 @@ class SeedScreen : AppCompatActivity() {
         btnParallel.setBackgroundColor(Color.parseColor(if (mode == "Parallel") "#B0BEC5" else "#455A64"))
         btnParallel.setTextColor(Color.parseColor(if (mode == "Parallel") "#000000" else "#FFFFFF"))
 
-        btnSerial.setBackgroundColor(Color.parseColor(if (mode == "Sequential") "#B0BEC5" else "#455A64"))
-        btnSerial.setTextColor(Color.parseColor(if (mode == "Sequential") "#000000" else "#FFFFFF"))
+        btnSerial.setBackgroundColor(Color.parseColor(if (mode == "Serial") "#B0BEC5" else "#455A64"))
+        btnSerial.setTextColor(Color.parseColor(if (mode == "Serial") "#000000" else "#FFFFFF"))
     }
 
     private fun toggleGpu() {
@@ -228,13 +254,15 @@ class SeedScreen : AppCompatActivity() {
     }
 
     private fun setupPredictButton() {
+        val predictButton = findViewById<Button>(R.id.predict_button)
+        val nextButton = findViewById<Button>(R.id.next_button)
         predictButton.setOnClickListener {
-
             if (roiList.isEmpty()) {
                 Toast.makeText(this, "No ROI received! Please return to ROI screen.", Toast.LENGTH_LONG).show()
                 return@setOnClickListener
             }
             showLoadingState()
+            val mode = selectedMode // capture mode at prediction time
             CoroutineScope(Dispatchers.IO).launch {
                 val startTime = System.currentTimeMillis()
 
@@ -256,17 +284,120 @@ class SeedScreen : AppCompatActivity() {
                 val timeTaken = endTime - startTime
 
                 withContext(Dispatchers.Main) {
-                    val intent = Intent(this@SeedScreen, FuzzyAndResultScreen::class.java).apply {
-                        putExtra("seed_list", seedList)
-                        putExtra("roi_list", ArrayList(roiList))
-                        putExtra("roi_time_taken", roiTimeTaken)
-                        putExtra("seed_time_taken", timeTaken)
-                        putExtra("shouldCleanup", false)
-                    }
-                    startActivity(intent)
+                    ResultsDataHolder.addOrUpdateReportEntry("Seed", mode, timeTaken)
+                    updateReportUI()
                     hideLoadingState()
+                    hasPredicted = true
+                    predictButton.text = "RE-PREDICT SEED"
+                    nextButton.isEnabled = true
                 }
             }
+        }
+    }
+
+    private fun updateReportUI() {
+        val reportContainer = findViewById<LinearLayout>(R.id.report_container)
+        reportContainer.removeAllViews()
+        val context = this
+        // Center the table horizontally
+        reportContainer.gravity = android.view.Gravity.CENTER_HORIZONTAL
+        // Table layout params
+        val tableLayoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
+        // Fixed column width in pixels (adjust as needed)
+        val COLUMN_WIDTH = 280
+        // Add table header
+        val headerRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, 0, 0, 0)
+            layoutParams = tableLayoutParams
+            setBackgroundResource(android.R.color.white)
+        }
+        val cellParams = TableRow.LayoutParams(
+            COLUMN_WIDTH,
+            TableRow.LayoutParams.WRAP_CONTENT
+        ).apply {
+            setMargins(2, 2, 2, 2)
+        }
+        val headerStyle = { tv: TextView ->
+            tv.setTypeface(null, android.graphics.Typeface.BOLD)
+            tv.textSize = 18f
+            tv.gravity = android.view.Gravity.CENTER
+            tv.setPadding(24, 16, 24, 16)
+            tv.layoutParams = cellParams
+            tv.setBackgroundColor(Color.LTGRAY)
+        }
+        val stepHeader = TextView(context).apply { text = "Step"; headerStyle(this) }
+        val parallelHeader = TextView(context).apply { text = "Parallel Time (ms)"; headerStyle(this) }
+        val serialHeader = TextView(context).apply { text = "Serial Time (ms)"; headerStyle(this) }
+        headerRow.addView(View(context).apply {
+            layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
+            setBackgroundColor(Color.WHITE)
+        })
+        headerRow.addView(stepHeader)
+        headerRow.addView(View(context).apply {
+            layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
+            setBackgroundColor(Color.WHITE)
+        })
+        headerRow.addView(parallelHeader)
+        headerRow.addView(View(context).apply {
+            layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
+            setBackgroundColor(Color.WHITE)
+        })
+        headerRow.addView(serialHeader)
+        headerRow.addView(View(context).apply {
+            layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
+            setBackgroundColor(Color.WHITE)
+        })
+        reportContainer.addView(headerRow)
+        // Add data rows
+        val rowStyle = { tv: TextView ->
+            tv.setTypeface(null, android.graphics.Typeface.BOLD)
+            tv.textSize = 17f
+            tv.setTextColor(Color.WHITE)
+            tv.gravity = android.view.Gravity.CENTER
+            tv.setPadding(24, 12, 24, 12)
+            tv.layoutParams = cellParams
+            tv.setBackgroundColor(Color.rgb(7, 30, 34))
+        }
+        ResultsDataHolder.reportEntries.forEachIndexed { idx, entry ->
+            val row = LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                setPadding(0, 0, 0, 0)
+                layoutParams = tableLayoutParams
+                if (idx % 2 == 0) setBackgroundColor(0xFFE0E0E0.toInt())
+            }
+            val stepView = TextView(context).apply { text = entry.step; rowStyle(this) }
+            val parallelView = TextView(context).apply { text = entry.parallelTime?.toString() ?: "-"; rowStyle(this) }
+            val serialView = TextView(context).apply { text = entry.serialTime?.toString() ?: "-"; rowStyle(this) }
+            row.addView(View(context).apply {
+                layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
+                setBackgroundColor(Color.WHITE)
+            })
+            row.addView(stepView)
+            // Add vertical separator
+            row.addView(View(context).apply {
+                layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
+                setBackgroundColor(Color.WHITE)
+            })
+            row.addView(parallelView)
+            row.addView(View(context).apply {
+                layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
+                setBackgroundColor(Color.WHITE)
+            })
+            row.addView(serialView)
+            row.addView(View(context).apply {
+                layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
+                setBackgroundColor(Color.WHITE)
+            })
+            reportContainer.addView(row)
+            // Add horizontal separator after each row
+            reportContainer.addView(View(context).apply {
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 2)
+                setBackgroundColor(Color.WHITE)
+            })
         }
     }
 

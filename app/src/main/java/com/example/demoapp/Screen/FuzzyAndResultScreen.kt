@@ -25,6 +25,8 @@ import androidx.core.content.ContextCompat
 import com.example.demoapp.Core.*
 import com.example.demoapp.R
 import com.example.demoapp.Utils.FileManager
+import com.example.demoapp.Utils.ResultsDataHolder
+import com.example.demoapp.Utils.ReportEntry
 import com.example.domain.interfaces.tumor.IFuzzySystem
 import com.example.domain.model.CancerVolume
 import com.example.domain.model.MRISequence
@@ -418,6 +420,9 @@ class FuzzyAndResultScreen : BaseActivity() {
                                     "Tumor Volume: ${cancerVolume.volume} mm³"
                                 resultsPatientName.text =
                                     "$selectedMode Computation Time: ${elapsed}ms"
+                                // Add report entry for Fuzzy step
+                                ResultsDataHolder.addOrUpdateReportEntry("Fuzzy", selectedMode, elapsed)
+                                updateReportUI(view)
                                 showResultsLayout()
                                 loadCurrentResultsImage(resultsMriImage)
                             }
@@ -566,5 +571,110 @@ class FuzzyAndResultScreen : BaseActivity() {
                 view
             }
         )
+    }
+
+    private fun updateReportUI(view: View) {
+        val reportContainer = view.findViewById<LinearLayout>(R.id.report_container)
+        reportContainer.removeAllViews()
+        val context = view.context
+        // Center the table horizontally
+        reportContainer.gravity = android.view.Gravity.CENTER_HORIZONTAL
+        // Table layout params
+        val tableLayoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
+        // Fixed column width in pixels (adjust as needed)
+        val COLUMN_WIDTH = 280
+        // Add table header
+        val headerRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, 0, 0, 0)
+            layoutParams = tableLayoutParams
+            setBackgroundResource(android.R.color.white)
+        }
+        val cellParams = TableRow.LayoutParams(
+            COLUMN_WIDTH,
+            TableRow.LayoutParams.WRAP_CONTENT
+        ).apply {
+            setMargins(2, 2, 2, 2)
+        }
+        val headerStyle = { tv: TextView ->
+            tv.setTypeface(null, android.graphics.Typeface.BOLD)
+            tv.textSize = 18f
+            tv.gravity = android.view.Gravity.CENTER
+            tv.setPadding(24, 16, 24, 16)
+            tv.layoutParams = cellParams
+            tv.setBackgroundColor(Color.LTGRAY)
+        }
+        headerRow.addView(View(context).apply {
+            layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
+            setBackgroundColor(Color.WHITE)
+        })
+        val stepHeader = TextView(context).apply { text = "Step"; headerStyle(this) }
+        headerRow.addView(stepHeader)
+        headerRow.addView(View(context).apply {
+            layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
+            setBackgroundColor(Color.WHITE)
+        })
+        val parallelHeader = TextView(context).apply { text = "Parallel Time (ms)"; headerStyle(this) }
+        headerRow.addView(parallelHeader)
+        headerRow.addView(View(context).apply {
+            layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
+            setBackgroundColor(Color.WHITE)
+        })
+        val serialHeader = TextView(context).apply { text = "Serial Time (ms)"; headerStyle(this) }
+        headerRow.addView(serialHeader)
+        headerRow.addView(View(context).apply {
+            layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
+            setBackgroundColor(Color.WHITE)
+        })
+        reportContainer.addView(headerRow)
+        // Add data rows
+        val rowStyle = { tv: TextView ->
+            tv.setTypeface(null, android.graphics.Typeface.BOLD)
+            tv.textSize = 17f
+            tv.setTextColor(Color.WHITE)
+            tv.gravity = android.view.Gravity.CENTER
+            tv.setPadding(24, 12, 24, 12)
+            tv.layoutParams = cellParams
+            tv.setBackgroundColor(Color.rgb(7, 30, 34))
+        }
+        ResultsDataHolder.reportEntries.forEachIndexed { idx, entry ->
+            val row = LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                setPadding(0, 0, 0, 0)
+                layoutParams = tableLayoutParams
+                if (idx % 2 == 0) setBackgroundColor(0xFFE0E0E0.toInt())
+            }
+            row.addView(View(context).apply {
+                layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
+                setBackgroundColor(Color.WHITE)
+            })
+            val stepView = TextView(context).apply { text = entry.step; rowStyle(this) }
+            row.addView(stepView)
+            row.addView(View(context).apply {
+                layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
+                setBackgroundColor(Color.WHITE)
+            })
+            val parallelView = TextView(context).apply { text = entry.parallelTime?.toString() ?: "-"; rowStyle(this) }
+            row.addView(parallelView)
+            row.addView(View(context).apply {
+                layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
+                setBackgroundColor(Color.WHITE)
+            })
+            val serialView = TextView(context).apply { text = entry.serialTime?.toString() ?: "-"; rowStyle(this) }
+            row.addView(serialView)
+            row.addView(View(context).apply {
+                layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
+                setBackgroundColor(Color.WHITE)
+            })
+            reportContainer.addView(row)
+            // Add horizontal separator after each row
+            reportContainer.addView(View(context).apply {
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 2)
+                setBackgroundColor(Color.WHITE)
+            })
+        }
     }
 }
