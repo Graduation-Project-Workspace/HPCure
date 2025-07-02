@@ -11,55 +11,131 @@ import com.example.domain.interfaces.tumor.IRoiPredictor
 import com.example.domain.model.MRISequence
 import com.example.domain.model.ROI
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.withContext
 import org.tensorflow.lite.Interpreter
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
 class ParallelRoiPredictor : IRoiPredictor {
-    private var modelFile : ByteBuffer? = null
     private lateinit var options: Interpreter.Options
-    private val interpreterPool = ThreadLocal<Interpreter>()
-    private val assetManager: AssetManager
     private val inputSize = 512 // Model expects 512x512 input
     private val outputShape = intArrayOf(1, 5, 5376) // Based on Python output shape
     private val modelName = "breast_roi_model.tflite"
+    // Constants
+    private companion object {
+        const val MAX_PARALLEL_REQUESTS = 4  // Optimal for most devices
+        const val MODEL_INPUT_SIZE = 512
+    }
+
+    // Shared model state (loaded once)
+    private val modelFile by lazy { loadModelFile() }
+    private val modelLock = Any()
+
+    // Thread-safe interpreter pool
+    private val interpreterPool = ThreadLocal<Interpreter>()
+    private val assetManager: AssetManager
 
     constructor(context: Context) {
         assetManager = context.assets
     }
 
-    override fun predictRoi(mriSequence: MRISequence,
-                            useGpuDelegate : Boolean,
-                            useAndroidNN : Boolean,
-                            numThreads : Int
-    ) : List<ROI> = runBlocking {
-        modelFile = loadModelFile()
-        options = Interpreter.Options().apply {
-            if(GpuDelegateHelper().isGpuDelegateAvailable && useGpuDelegate) {
-                addDelegate(GpuDelegateHelper().createGpuDelegate())
-            }
-            useNNAPI = useAndroidNN
-            setUseXNNPACK(false)
-            setNumThreads(numThreads)
-        }
-        val jobs = mriSequence.images.map { sliceBitmap ->
-            async(Dispatchers.Default) {
-                val interpreter = loadModel()
-                val roi = predictRoi(sliceBitmap, interpreter)
-                interpreter.close()
-                interpreterPool.set(null)
-                return@async roi
-            }
-        }
-        val jobsResults = jobs.awaitAll()
-        modelFile = null
+    override fun predictRoi(
+        mriSequence: MRISequence,
+        useGpuDelegate: Boolean,
+        useAndroidNN: Boolean,
+        numThreads: Int
+    ): List<ROI> = runBlocking {
+        // 1. Configure with safe defaults
+        val options = createSafeInterpreterOptions(useGpuDelegate, useAndroidNN, numThreads)
 
-        return@runBlocking jobsResults
+        // 2. Use semaphore to limit concurrent work
+        val semaphore = Semaphore(MAX_PARALLEL_REQUESTS)
+
+        // 3. Process with memory awareness
+        val jobs = mriSequence.images.map { sliceBitmap ->
+            async(Dispatchers.IO) {
+                semaphore.acquire()
+                try {
+                    processSingleSlice(sliceBitmap, options)
+                } finally {
+                    semaphore.release()
+                }
+            }
+        }
+
+        return@runBlocking jobs.awaitAll()
     }
 
+    private fun createSafeInterpreterOptions(
+        useGpuDelegate: Boolean,
+        useAndroidNN: Boolean,
+        numThreads: Int
+    ): Interpreter.Options {
+        return Interpreter.Options().apply {
+            // GPU with fallback
+            if (useGpuDelegate && GpuDelegateHelper().isGpuDelegateAvailable) {
+                try {
+                    addDelegate(GpuDelegateHelper().createGpuDelegate())
+                } catch (e: Exception) {
+                    Log.w("RoiPredictor", "GPU delegate failed, using CPU", e)
+                }
+            }
+
+            // Thread management
+            setNumThreads(numThreads.coerceIn(1, 4))
+            setUseNNAPI(useAndroidNN)
+            setUseXNNPACK(false)
+        }
+    }
+
+    private suspend fun processSingleSlice(
+        sliceBitmap: Bitmap,
+        options: Interpreter.Options
+    ): ROI = withContext(Dispatchers.IO) {
+        // 1. Load model safely
+        val interpreter = loadModel(options)
+
+        try {
+            // 2. Process with memory-efficient bitmap handling
+            val configBitmap = ensureBitmapConfig(sliceBitmap)
+            val resizedBitmap = configBitmap.scale(MODEL_INPUT_SIZE, MODEL_INPUT_SIZE)
+
+            return@withContext try {
+                predictRoi(resizedBitmap, interpreter)
+            } finally {
+                if (resizedBitmap != configBitmap) resizedBitmap.recycle()
+                if (configBitmap != sliceBitmap) configBitmap.recycle()
+            }
+        } finally {
+            interpreter.close()
+            interpreterPool.remove()
+        }
+    }
+
+    private fun ensureBitmapConfig(bitmap: Bitmap): Bitmap {
+        return if (bitmap.config == Bitmap.Config.ARGB_8888) {
+            bitmap
+        } else {
+            bitmap.copy(Bitmap.Config.ARGB_8888, false).also {
+                if (it != bitmap) {
+                    bitmap.recycle()
+                }
+            }
+        }
+    }
+
+    private fun loadModel(options: Interpreter.Options): Interpreter {
+        return interpreterPool.get() ?: synchronized(modelLock) {
+            interpreterPool.get() ?: Interpreter(modelFile, options).also {
+                interpreterPool.set(it)
+            }
+        }
+    }
     override fun predictRoi(
         sliceBitmap: Bitmap,
         tflite : Interpreter
