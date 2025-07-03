@@ -26,7 +26,6 @@ import com.example.demoapp.Core.*
 import com.example.demoapp.R
 import com.example.demoapp.Utils.FileManager
 import com.example.demoapp.Utils.ResultsDataHolder
-import com.example.demoapp.Utils.ReportEntry
 import com.example.domain.interfaces.tumor.IFuzzySystem
 import com.example.domain.model.CancerVolume
 import com.example.domain.model.MRISequence
@@ -104,25 +103,6 @@ class FuzzyAndResultScreen : BaseActivity() {
             return
         }
 
-        val bitmaps = FileManager.getAllFiles().mapNotNull {
-            FileManager.getProcessedImage(this, it)
-        }
-        val mriSequence = MRISequence(
-            images = bitmaps,
-            metadata = FileManager.getDicomMetadata()
-        )
-        tumorMriSequence = MRISequence(
-            images = emptyList(),
-            metadata = FileManager.getDicomMetadata()
-        )
-
-        for ((index, roi) in roiList.withIndex()) {
-            if (roi.score > 0.3) {
-                tumorMriSequence.images+= mriSequence.images[index]
-                tumorRoiList+= roi
-            }
-        }
-
         // Initialize predictors after context is available
         roiPredictor = ParallelRoiPredictor(this)
         seedPredictor = ParallelSeedPredictor(this)
@@ -173,8 +153,6 @@ class FuzzyAndResultScreen : BaseActivity() {
 
         // Update button colors - this will be handled in the AndroidView context
     }
-
-
 
     private fun highlightCancerArea(bitmap: Bitmap, sliceIndex: Int): Bitmap {
         val mutableBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true)
@@ -455,6 +433,28 @@ class FuzzyAndResultScreen : BaseActivity() {
                     fuzzyAlphaCutValue.text = "%.2f%%".format(currentAlphaCutValue)
                 }
 
+                fun showLoadingState() {
+                    loadingOverlay.alpha = 0f
+                    loadingOverlay.visibility = View.VISIBLE
+                    loadingOverlay.animate()
+                        .alpha(1f)
+                        .setDuration(200)
+                        .start()
+                    fuzzyCalculateButton.isEnabled = false
+                }
+
+                fun hideLoadingState() {
+                    loadingOverlay.animate()
+                        .alpha(0f)
+                        .setDuration(200)
+                        .withEndAction {
+                            loadingOverlay.visibility = View.GONE
+                            fuzzyCalculateButton.isEnabled = true
+                        }
+                        .start()
+                }
+
+
                 btnParallel.setOnClickListener { setMode("Parallel") }
                 btnSerial.setOnClickListener { setMode("Serial") }
 
@@ -465,7 +465,6 @@ class FuzzyAndResultScreen : BaseActivity() {
                 resultsBtnParallel.setOnClickListener { setMode("Parallel") }
                 resultsBtnSerial.setOnClickListener { setMode("Serial") }
                 resultsBtnGrpc.setOnClickListener { setMode("GRPC") }
-
 
                 // Set up recalculate button
                 resultsRecalculateButton.setOnClickListener {
@@ -562,11 +561,35 @@ class FuzzyAndResultScreen : BaseActivity() {
                     override fun onStopTrackingTouch(seekBar: SeekBar?) {}
                 })
 
-                // Initial setup
-                setMode("Parallel")
-                loadCurrentImage(fuzzyMriImage, fuzzyPrevImage, fuzzyNextImage, resultsPrevImage, resultsNextImage)
-                updateImageCount(fuzzyImageCount, resultsImageCount)
-                showFuzzyLayout()
+                showLoadingState()
+                CoroutineScope(Dispatchers.IO).launch {
+                    val bitmaps = FileManager.getAllFiles().mapNotNull {
+                        FileManager.getProcessedImage(this@FuzzyAndResultScreen, it)
+                    }
+                    val mriSequence = MRISequence(
+                        images = bitmaps,
+                        metadata = FileManager.getDicomMetadata()
+                    )
+                    tumorMriSequence = MRISequence(
+                        images = emptyList(),
+                        metadata = FileManager.getDicomMetadata()
+                    )
+
+                    for ((index, roi) in roiList.withIndex()) {
+                        if (roi.score > 0.3) {
+                            tumorMriSequence.images += mriSequence.images[index]
+                            tumorRoiList += roi
+                        }
+                    }
+                    withContext(Dispatchers.Main) {
+                        // Initial setup
+                        hideLoadingState()
+                        setMode("Parallel")
+                        loadCurrentImage(fuzzyMriImage, fuzzyPrevImage, fuzzyNextImage, resultsPrevImage, resultsNextImage)
+                        updateImageCount(fuzzyImageCount, resultsImageCount)
+                        showFuzzyLayout()
+                    }
+                }
 
                 view
             }
