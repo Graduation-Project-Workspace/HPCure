@@ -94,7 +94,12 @@ class FuzzyAndResultScreen : BaseActivity() {
             }
         }
 
-        if (FileManager.getAllFiles().isEmpty()) {
+        // Check if we have the full MRI sequence in ResultsDataHolder
+        val fullMriSeq = com.example.demoapp.Utils.ResultsDataHolder.fullMriSequence
+        Log.d("FuzzyAndResultScreen", "onCreate: fullMriSeq is null: ${fullMriSeq == null}")
+        Log.d("FuzzyAndResultScreen", "onCreate: fullMriSeq images count: ${fullMriSeq?.images?.size}")
+        if (fullMriSeq == null || fullMriSeq.images.isEmpty()) {
+            Log.e("FuzzyAndResultScreen", "onCreate: No full MRI sequence available, returning to upload screen")
             Toast.makeText(this, "No images loaded! Returning to upload screen.", Toast.LENGTH_LONG).show()
             startActivity(Intent(this, UploadScreen::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
@@ -153,6 +158,8 @@ class FuzzyAndResultScreen : BaseActivity() {
 
         // Update button colors - this will be handled in the AndroidView context
     }
+
+
 
     private fun highlightCancerArea(bitmap: Bitmap, sliceIndex: Int): Bitmap {
         val mutableBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true)
@@ -281,11 +288,13 @@ class FuzzyAndResultScreen : BaseActivity() {
                 val fuzzyPrevImage = view.findViewById<ImageButton>(R.id.fuzzy_prev_image)
                 val fuzzyNextImage = view.findViewById<ImageButton>(R.id.fuzzy_next_image)
                 val fuzzyCalculateButton = view.findViewById<Button>(R.id.fuzzy_calculate_button)
-                val fuzzyCalculateVolumeButton = view.findViewById<Button>(R.id.fuzzy_calculate_volume_button)
                 val fuzzyPatientName = view.findViewById<TextView>(R.id.fuzzy_patient_name)
                 val fuzzyBackButton = view.findViewById<ImageButton>(R.id.fuzzy_back_button)
                 val btnParallel = view.findViewById<Button>(R.id.btn_parallel)
                 val btnSerial = view.findViewById<Button>(R.id.btn_serial)
+                val fuzzyTimeText = view.findViewById<TextView>(R.id.fuzzy_time_text)
+                val fuzzyShowResultsButton = view.findViewById<Button>(R.id.fuzzy_show_results_button)
+                val fuzzyReportContainer = view.findViewById<LinearLayout>(R.id.fuzzy_report_container)
                 val resultsLayout = view.findViewById<RelativeLayout>(R.id.results_layout)
                 val resultsMriImage = view.findViewById<ImageView>(R.id.results_mri_image)
                 val resultsImageCount = view.findViewById<TextView>(R.id.results_image_count)
@@ -341,29 +350,38 @@ class FuzzyAndResultScreen : BaseActivity() {
                     loadingOverlay.visibility = View.VISIBLE
                     fuzzyCalculateButton.isEnabled = false
                     resultsRecalculateButton.isEnabled = false
+                    val activityContext = this@FuzzyAndResultScreen
                     CoroutineScope(Dispatchers.Default).launch {
                         try {
+                            // Always reset to full MRI sequence before any calculation
+                            val fullMriSeq = com.example.demoapp.Utils.ResultsDataHolder.fullMriSequence
+                            Log.d("FuzzyAndResultScreen", "performRecalculation: fullMriSeq is null: ${fullMriSeq == null}")
+                            Log.d("FuzzyAndResultScreen", "performRecalculation: fullMriSeq images count: ${fullMriSeq?.images?.size}")
+                            if (fullMriSeq != null) {
+                                // Create a deep copy to avoid modifying the original sequence
+                                tumorMriSequence.images = fullMriSeq.images.map { it.copy(it.config ?: Bitmap.Config.ARGB_8888, true) }.toMutableList()
+                            } else {
+                                // Fallback to the current MRI sequence if full sequence is not available
+                                val bitmaps = FileManager.getAllFiles().mapNotNull {
+                                    FileManager.getProcessedImage(activityContext, it)
+                                }
+                                val fallbackMriSeq = MRISequence(
+                                    images = bitmaps,
+                                    metadata = FileManager.getDicomMetadata()
+                                )
+                                tumorMriSequence.images = fallbackMriSeq.images.toMutableList()
+                            }
                             val startTime: Long
                             val elapsed: Long
                             if (selectedMode == "Parallel") {
-                                // Parallel pipeline
                                 startTime = System.currentTimeMillis()
-                                Log.d("FuzzyAndResultScreen", "Starting ROI prediction, images: ${tumorMriSequence.images.size}")
                                 val roiListParallel = roiPredictor.predictRoi(tumorMriSequence, useGpuDelegate = false, useAndroidNN = false, numThreads = 4)
-                                Log.d("FuzzyAndResultScreen", "ROI prediction done, rois: ${roiListParallel.size}")
-
-                                Log.d("FuzzyAndResultScreen", "Starting Seed prediction")
                                 val seedListParallel = seedPredictor.predictSeed(tumorMriSequence, roiListParallel, useGpuDelegate = false, useAndroidNN = false, numThreads = 4).toList()
-                                Log.d("FuzzyAndResultScreen", "Seed prediction done, seeds: ${seedListParallel.size}")
-
-                                Log.d("FuzzyAndResultScreen", "Starting Fuzzy volume estimation")
                                 cancerVolume = parallelFuzzySystem.estimateVolume(tumorMriSequence, roiListParallel, seedListParallel, currentAlphaCutValue)
-                                Log.d("FuzzyAndResultScreen", "Fuzzy volume estimation done")
                                 tumorRoiList = roiListParallel
                                 seedList = seedListParallel.toTypedArray()
                                 elapsed = System.currentTimeMillis() - startTime
                             } else if (selectedMode == "Serial") {
-                                // Serial pipeline
                                 startTime = System.currentTimeMillis()
                                 val roiListSerial = sequentialRoiPredictor.predictRoi(tumorMriSequence, useGpuDelegate = false, useAndroidNN = false, numThreads = 1)
                                 val seedListSerial = sequentialSeedPredictor.predictSeed(tumorMriSequence, roiListSerial, useGpuDelegate = false, useAndroidNN = false, numThreads = 1).toList()
@@ -373,21 +391,32 @@ class FuzzyAndResultScreen : BaseActivity() {
                                 elapsed = System.currentTimeMillis() - startTime
                             } else {
                                 startTime = System.currentTimeMillis()
-
-                                // Create VolumeEstimator instance
+                                // Always reset to full MRI sequence for gRPC as well
+                                val fullMriSeq = com.example.demoapp.Utils.ResultsDataHolder.fullMriSequence
+                                if (fullMriSeq != null) {
+                                    // Create a deep copy to avoid modifying the original sequence
+                                    tumorMriSequence.images = fullMriSeq.images.map { it.copy(it.config ?: Bitmap.Config.ARGB_8888, true) }.toMutableList()
+                                } else {
+                                    // Fallback to the current MRI sequence if full sequence is not available
+                                    val bitmaps = FileManager.getAllFiles().mapNotNull {
+                                        FileManager.getProcessedImage(activityContext, it)
+                                    }
+                                    val fallbackMriSeq = MRISequence(
+                                        images = bitmaps,
+                                        metadata = FileManager.getDicomMetadata()
+                                    )
+                                    tumorMriSequence.images = fallbackMriSeq.images.toMutableList()
+                                }
                                 val volumeEstimator = VolumeEstimator(
                                     fuzzySystem = parallelFuzzySystem,
                                     seedPredictor = seedPredictor,
                                     roiPredictor = roiPredictor,
-                                    network = SharedViewModel.getInstance(this@FuzzyAndResultScreen).network
+                                    network = SharedViewModel.getInstance(activityContext).network
                                 )
-
-                                // Use gRPC volume estimation
                                 cancerVolume = volumeEstimator.estimateVolumeGrpc(
                                     mriSeq = tumorMriSequence,
                                     alphaCutValue = currentAlphaCutValue
                                 )
-
                                 elapsed = System.currentTimeMillis() - startTime
                             }
                             withContext(Dispatchers.Main) {
@@ -400,7 +429,11 @@ class FuzzyAndResultScreen : BaseActivity() {
                                     "$selectedMode Computation Time: ${elapsed}ms"
                                 // Add report entry for Fuzzy step
                                 ResultsDataHolder.addOrUpdateReportEntry("Fuzzy", selectedMode, elapsed)
-                                updateReportUI(view)
+                                if (selectedMode == "GRPC" || selectedMode == "gRPC") {
+                                    ResultsDataHolder.addOrUpdateReportEntry("Fuzzy", "gRPC", elapsed)
+                                    ResultsDataHolder.addOrUpdateReportEntry("Whole process", "gRPC", elapsed)
+                                }
+                                updateReportUI(view, fuzzyReportContainer)
                                 showResultsLayout()
                                 loadCurrentResultsImage(resultsMriImage)
                             }
@@ -528,7 +561,6 @@ class FuzzyAndResultScreen : BaseActivity() {
                     }
                     loadingOverlay.visibility = View.VISIBLE
                     fuzzyCalculateButton.isEnabled = false
-                    resultsRecalculateButton.isEnabled = false
                     val startTime = System.currentTimeMillis()
                     CoroutineScope(Dispatchers.Default).launch {
                         val alphaCut = currentAlphaCutValue
@@ -537,14 +569,17 @@ class FuzzyAndResultScreen : BaseActivity() {
                         withContext(Dispatchers.Main) {
                             loadingOverlay.visibility = View.GONE
                             fuzzyCalculateButton.isEnabled = true
-                            resultsRecalculateButton.isEnabled = true
-                            val totalTime = roiTimeTaken + seedTimeTaken + elapsed
-                            resultsTumorVolume.text = "Tumor Volume: ${cancerVolume.volume} mm³"
-                            resultsPatientName.text = "Total Time: ${totalTime}ms"
-                            showResultsLayout()
-                            loadCurrentResultsImage(resultsMriImage)
+                            fuzzyShowResultsButton.isEnabled = true
+                            fuzzyCalculateButton.text = "Re-calculate Volume"
+                            fuzzyTimeText.text = "${selectedMode} Time: ${elapsed}ms"
+                            com.example.demoapp.Utils.ResultsDataHolder.addOrUpdateReportEntry("Fuzzy", selectedMode, elapsed)
+                            updateReportUI(view, fuzzyReportContainer)
                         }
                     }
+                }
+
+                fuzzyShowResultsButton.setOnClickListener {
+                    showResultsLayout()
                 }
 
                 // Set up alpha cut control
@@ -591,13 +626,17 @@ class FuzzyAndResultScreen : BaseActivity() {
                     }
                 }
 
+                fuzzyShowResultsButton.isEnabled = false
+                fuzzyCalculateButton.text = "Calculate Volume"
+                fuzzyTimeText.text = ""
+                updateReportUI(view, fuzzyReportContainer)
+
                 view
             }
         )
     }
 
-    private fun updateReportUI(view: View) {
-        val reportContainer = view.findViewById<LinearLayout>(R.id.report_container)
+    private fun updateReportUI(view: View, reportContainer: LinearLayout) {
         reportContainer.removeAllViews()
         val context = view.context
         // Center the table horizontally
@@ -652,8 +691,13 @@ class FuzzyAndResultScreen : BaseActivity() {
             layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
             setBackgroundColor(Color.WHITE)
         })
+        val grpcHeader = TextView(context).apply { text = "gRPC Time (ms)"; headerStyle(this) }
+        headerRow.addView(grpcHeader)
+        headerRow.addView(View(context).apply {
+            layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
+            setBackgroundColor(Color.WHITE)
+        })
         reportContainer.addView(headerRow)
-        // Add data rows
         val rowStyle = { tv: TextView ->
             tv.setTypeface(null, android.graphics.Typeface.BOLD)
             tv.textSize = 17f
@@ -663,7 +707,7 @@ class FuzzyAndResultScreen : BaseActivity() {
             tv.layoutParams = cellParams
             tv.setBackgroundColor(Color.rgb(7, 30, 34))
         }
-        ResultsDataHolder.reportEntries.forEachIndexed { idx, entry ->
+        com.example.demoapp.Utils.ResultsDataHolder.reportEntries.forEachIndexed { idx, entry ->
             val row = LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
                 setPadding(0, 0, 0, 0)
@@ -692,6 +736,12 @@ class FuzzyAndResultScreen : BaseActivity() {
                 layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
                 setBackgroundColor(Color.WHITE)
             })
+            val grpcView = TextView(context).apply { text = entry.grpcTime?.toString() ?: "-"; rowStyle(this) }
+            row.addView(grpcView)
+            row.addView(View(context).apply {
+                layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
+                setBackgroundColor(Color.WHITE)
+            })
             reportContainer.addView(row)
             // Add horizontal separator after each row
             reportContainer.addView(View(context).apply {
@@ -699,5 +749,48 @@ class FuzzyAndResultScreen : BaseActivity() {
                 setBackgroundColor(Color.WHITE)
             })
         }
+        // Add the 'Whole process' row
+        val totalParallel = com.example.demoapp.Utils.ResultsDataHolder.getTotalParallel()
+        val totalSerial = com.example.demoapp.Utils.ResultsDataHolder.getTotalSerial()
+        val totalGrpc = com.example.demoapp.Utils.ResultsDataHolder.getTotalGrpc()
+        val totalRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, 0, 0, 0)
+            layoutParams = tableLayoutParams
+            setBackgroundColor(0xFFB0BEC5.toInt())
+        }
+        totalRow.addView(View(context).apply {
+            layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
+            setBackgroundColor(Color.WHITE)
+        })
+        val totalStep = TextView(context).apply { text = "Whole process"; rowStyle(this) }
+        totalRow.addView(totalStep)
+        totalRow.addView(View(context).apply {
+            layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
+            setBackgroundColor(Color.WHITE)
+        })
+        val totalParallelView = TextView(context).apply { text = if (totalParallel > 0) totalParallel.toString() else "-"; rowStyle(this) }
+        totalRow.addView(totalParallelView)
+        totalRow.addView(View(context).apply {
+            layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
+            setBackgroundColor(Color.WHITE)
+        })
+        val totalSerialView = TextView(context).apply { text = if (totalSerial > 0) totalSerial.toString() else "-"; rowStyle(this) }
+        totalRow.addView(totalSerialView)
+        totalRow.addView(View(context).apply {
+            layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
+            setBackgroundColor(Color.WHITE)
+        })
+        val totalGrpcView = TextView(context).apply { text = if (totalGrpc > 0) totalGrpc.toString() else "-"; rowStyle(this) }
+        totalRow.addView(totalGrpcView)
+        totalRow.addView(View(context).apply {
+            layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
+            setBackgroundColor(Color.WHITE)
+        })
+        reportContainer.addView(totalRow)
+        reportContainer.addView(View(context).apply {
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 2)
+            setBackgroundColor(Color.WHITE)
+        })
     }
 }

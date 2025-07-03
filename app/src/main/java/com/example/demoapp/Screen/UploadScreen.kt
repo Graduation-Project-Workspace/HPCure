@@ -88,6 +88,12 @@ class UploadScreen : AppCompatActivity() {
                         val result = FileManager.loadDirectory(this@UploadScreen, uri)
                         val fileCount = FileManager.getTotalFiles()
                         Log.d("UploadScreen", "Files loaded: $fileCount")
+                        // Store the full, unfiltered MRI sequence for later use
+                        val bitmaps = FileManager.getAllFiles().mapNotNull { file ->
+                            FileManager.getProcessedImage(this@UploadScreen, file)
+                        }
+                        val mriSeq = com.example.domain.model.MRISequence(images = bitmaps, metadata = FileManager.getDicomMetadata())
+                        com.example.demoapp.Utils.ResultsDataHolder.fullMriSequence = mriSeq
                         result && fileCount > 0
                     } catch (e: Exception) {
                         Log.e("UploadScreen", "Error in loadDirectory", e)
