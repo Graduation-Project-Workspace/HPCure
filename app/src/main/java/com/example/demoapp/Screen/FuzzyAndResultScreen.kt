@@ -58,6 +58,7 @@ class FuzzyAndResultScreen : BaseActivity() {
     private lateinit var sequentialRoiPredictor: SequentialRoiPredictor
     private lateinit var sequentialSeedPredictor: SequentialSeedPredictor
     private var sliceIndex = 0
+    private var showWholeProcessRow = false
 
     private val storagePermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -273,6 +274,27 @@ class FuzzyAndResultScreen : BaseActivity() {
         }
     }
 
+    fun showLoadingState(loadingOverlay :RelativeLayout, fuzzyCalculateButton: Button) {
+        loadingOverlay.alpha = 0f
+        loadingOverlay.visibility = View.VISIBLE
+        loadingOverlay.animate()
+            .alpha(1f)
+            .setDuration(200)
+            .start()
+        fuzzyCalculateButton.isEnabled = false
+    }
+
+    fun hideLoadingState(loadingOverlay :RelativeLayout, fuzzyCalculateButton: Button) {
+        loadingOverlay.animate()
+            .alpha(0f)
+            .setDuration(200)
+            .withEndAction {
+                loadingOverlay.visibility = View.GONE
+                fuzzyCalculateButton.isEnabled = true
+            }
+            .start()
+    }
+
     override fun getMainContent(): @Composable () -> Unit = {
         AndroidView(
             modifier = Modifier.fillMaxSize(),
@@ -305,6 +327,7 @@ class FuzzyAndResultScreen : BaseActivity() {
                 val resultsRecalculateButton = view.findViewById<Button>(R.id.results_recalculate_button)
                 val resultsBackButton = view.findViewById<ImageButton>(R.id.results_back_button)
                 val loadingOverlay = view.findViewById<RelativeLayout>(R.id.loading_overlay)
+                val resultsReportContainer = view.findViewById<LinearLayout>(R.id.report_container)
 
                 // Local functions for UI operations
                 fun showFuzzyLayout() {
@@ -347,7 +370,7 @@ class FuzzyAndResultScreen : BaseActivity() {
                 }
 
                 fun performRecalculation() {
-                    loadingOverlay.visibility = View.VISIBLE
+                    showLoadingState(loadingOverlay, fuzzyCalculateButton)
                     fuzzyCalculateButton.isEnabled = false
                     resultsRecalculateButton.isEnabled = false
                     val activityContext = this@FuzzyAndResultScreen
@@ -420,7 +443,7 @@ class FuzzyAndResultScreen : BaseActivity() {
                                 elapsed = System.currentTimeMillis() - startTime
                             }
                             withContext(Dispatchers.Main) {
-                                loadingOverlay.visibility = View.GONE
+                                hideLoadingState(loadingOverlay, fuzzyCalculateButton)
                                 fuzzyCalculateButton.isEnabled = true
                                 resultsRecalculateButton.isEnabled = true
                                 resultsTumorVolume.text =
@@ -433,14 +456,15 @@ class FuzzyAndResultScreen : BaseActivity() {
                                     ResultsDataHolder.addOrUpdateReportEntry("Fuzzy", "gRPC", elapsed)
                                     ResultsDataHolder.addOrUpdateReportEntry("Whole process", "gRPC", elapsed)
                                 }
-                                updateReportUI(view, fuzzyReportContainer)
+                                showWholeProcessRow = true
+                                updateReportUI(view, resultsReportContainer, showWholeProcessRow)
                                 showResultsLayout()
                                 loadCurrentResultsImage(resultsMriImage)
                             }
                         } catch (e: Exception) {
                             Log.e("FuzzyAndResultScreen", "Error in gRPC volume estimation", e)
                             withContext(Dispatchers.Main) {
-                                loadingOverlay.visibility = View.GONE
+                                hideLoadingState(loadingOverlay, fuzzyCalculateButton)
                                 fuzzyCalculateButton.isEnabled = true
                                 resultsRecalculateButton.isEnabled = true
                                 Toast.makeText(ctx, "Error in volume calculation: ${e.message}", Toast.LENGTH_LONG).show()
@@ -501,6 +525,7 @@ class FuzzyAndResultScreen : BaseActivity() {
 
                 // Set up recalculate button
                 resultsRecalculateButton.setOnClickListener {
+                    showLoadingState()
                     performRecalculation()
                 }
 
@@ -573,12 +598,13 @@ class FuzzyAndResultScreen : BaseActivity() {
                             fuzzyCalculateButton.text = "Re-calculate Volume"
                             fuzzyTimeText.text = "${selectedMode} Time: ${elapsed}ms"
                             com.example.demoapp.Utils.ResultsDataHolder.addOrUpdateReportEntry("Fuzzy", selectedMode, elapsed)
-                            updateReportUI(view, fuzzyReportContainer)
+                            updateReportUI(view, fuzzyReportContainer, false)
                         }
                     }
                 }
 
                 fuzzyShowResultsButton.setOnClickListener {
+                    updateReportUI(view, resultsReportContainer, true)
                     showResultsLayout()
                 }
 
@@ -629,14 +655,15 @@ class FuzzyAndResultScreen : BaseActivity() {
                 fuzzyShowResultsButton.isEnabled = false
                 fuzzyCalculateButton.text = "Calculate Volume"
                 fuzzyTimeText.text = ""
-                updateReportUI(view, fuzzyReportContainer)
+                updateReportUI(view, fuzzyReportContainer, false)
+                updateReportUI(view, resultsReportContainer, false)
 
                 view
             }
         )
     }
 
-    private fun updateReportUI(view: View, reportContainer: LinearLayout) {
+    private fun updateReportUI(view: View, reportContainer: LinearLayout, showWholeProcessRow: Boolean) {
         reportContainer.removeAllViews()
         val context = view.context
         // Center the table horizontally
@@ -707,90 +734,94 @@ class FuzzyAndResultScreen : BaseActivity() {
             tv.layoutParams = cellParams
             tv.setBackgroundColor(Color.rgb(7, 30, 34))
         }
-        com.example.demoapp.Utils.ResultsDataHolder.reportEntries.forEachIndexed { idx, entry ->
-            val row = LinearLayout(context).apply {
+        com.example.demoapp.Utils.ResultsDataHolder.reportEntries
+            .filter { it.step != "Whole process" }
+            .forEachIndexed { idx, entry ->
+                val row = LinearLayout(context).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    setPadding(0, 0, 0, 0)
+                    layoutParams = tableLayoutParams
+                    if (idx % 2 == 0) setBackgroundColor(0xFFE0E0E0.toInt())
+                }
+                row.addView(View(context).apply {
+                    layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
+                    setBackgroundColor(Color.WHITE)
+                })
+                val stepView = TextView(context).apply { text = entry.step; rowStyle(this) }
+                row.addView(stepView)
+                row.addView(View(context).apply {
+                    layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
+                    setBackgroundColor(Color.WHITE)
+                })
+                val parallelView = TextView(context).apply { text = entry.parallelTime?.toString() ?: "-"; rowStyle(this) }
+                row.addView(parallelView)
+                row.addView(View(context).apply {
+                    layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
+                    setBackgroundColor(Color.WHITE)
+                })
+                val serialView = TextView(context).apply { text = entry.serialTime?.toString() ?: "-"; rowStyle(this) }
+                row.addView(serialView)
+                row.addView(View(context).apply {
+                    layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
+                    setBackgroundColor(Color.WHITE)
+                })
+                val grpcView = TextView(context).apply { text = entry.grpcTime?.toString() ?: "-"; rowStyle(this) }
+                row.addView(grpcView)
+                row.addView(View(context).apply {
+                    layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
+                    setBackgroundColor(Color.WHITE)
+                })
+                reportContainer.addView(row)
+                // Add horizontal separator after each row
+                reportContainer.addView(View(context).apply {
+                    layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 2)
+                    setBackgroundColor(Color.WHITE)
+                })
+            }
+        // Only add the 'Whole process' row if showWholeProcessRow is true
+        if (showWholeProcessRow) {
+            val totalParallel = com.example.demoapp.Utils.ResultsDataHolder.getTotalParallel()
+            val totalSerial = com.example.demoapp.Utils.ResultsDataHolder.getTotalSerial()
+            val totalGrpc = com.example.demoapp.Utils.ResultsDataHolder.getTotalGrpc()
+            val totalRow = LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
                 setPadding(0, 0, 0, 0)
                 layoutParams = tableLayoutParams
-                if (idx % 2 == 0) setBackgroundColor(0xFFE0E0E0.toInt())
+                setBackgroundColor(0xFFB0BEC5.toInt())
             }
-            row.addView(View(context).apply {
+            totalRow.addView(View(context).apply {
                 layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
                 setBackgroundColor(Color.WHITE)
             })
-            val stepView = TextView(context).apply { text = entry.step; rowStyle(this) }
-            row.addView(stepView)
-            row.addView(View(context).apply {
+            val totalStep = TextView(context).apply { text = "Whole process"; rowStyle(this) }
+            totalRow.addView(totalStep)
+            totalRow.addView(View(context).apply {
                 layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
                 setBackgroundColor(Color.WHITE)
             })
-            val parallelView = TextView(context).apply { text = entry.parallelTime?.toString() ?: "-"; rowStyle(this) }
-            row.addView(parallelView)
-            row.addView(View(context).apply {
+            val totalParallelView = TextView(context).apply { text = if (totalParallel > 0) totalParallel.toString() else "-"; rowStyle(this) }
+            totalRow.addView(totalParallelView)
+            totalRow.addView(View(context).apply {
                 layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
                 setBackgroundColor(Color.WHITE)
             })
-            val serialView = TextView(context).apply { text = entry.serialTime?.toString() ?: "-"; rowStyle(this) }
-            row.addView(serialView)
-            row.addView(View(context).apply {
+            val totalSerialView = TextView(context).apply { text = if (totalSerial > 0) totalSerial.toString() else "-"; rowStyle(this) }
+            totalRow.addView(totalSerialView)
+            totalRow.addView(View(context).apply {
                 layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
                 setBackgroundColor(Color.WHITE)
             })
-            val grpcView = TextView(context).apply { text = entry.grpcTime?.toString() ?: "-"; rowStyle(this) }
-            row.addView(grpcView)
-            row.addView(View(context).apply {
+            val totalGrpcView = TextView(context).apply { text = if (totalGrpc > 0) totalGrpc.toString() else "-"; rowStyle(this) }
+            totalRow.addView(totalGrpcView)
+            totalRow.addView(View(context).apply {
                 layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
                 setBackgroundColor(Color.WHITE)
             })
-            reportContainer.addView(row)
-            // Add horizontal separator after each row
+            reportContainer.addView(totalRow)
             reportContainer.addView(View(context).apply {
                 layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 2)
                 setBackgroundColor(Color.WHITE)
             })
         }
-        // Add the 'Whole process' row
-        val totalParallel = com.example.demoapp.Utils.ResultsDataHolder.getTotalParallel()
-        val totalSerial = com.example.demoapp.Utils.ResultsDataHolder.getTotalSerial()
-        val totalGrpc = com.example.demoapp.Utils.ResultsDataHolder.getTotalGrpc()
-        val totalRow = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding(0, 0, 0, 0)
-            layoutParams = tableLayoutParams
-            setBackgroundColor(0xFFB0BEC5.toInt())
-        }
-        totalRow.addView(View(context).apply {
-            layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
-            setBackgroundColor(Color.WHITE)
-        })
-        val totalStep = TextView(context).apply { text = "Whole process"; rowStyle(this) }
-        totalRow.addView(totalStep)
-        totalRow.addView(View(context).apply {
-            layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
-            setBackgroundColor(Color.WHITE)
-        })
-        val totalParallelView = TextView(context).apply { text = if (totalParallel > 0) totalParallel.toString() else "-"; rowStyle(this) }
-        totalRow.addView(totalParallelView)
-        totalRow.addView(View(context).apply {
-            layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
-            setBackgroundColor(Color.WHITE)
-        })
-        val totalSerialView = TextView(context).apply { text = if (totalSerial > 0) totalSerial.toString() else "-"; rowStyle(this) }
-        totalRow.addView(totalSerialView)
-        totalRow.addView(View(context).apply {
-            layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
-            setBackgroundColor(Color.WHITE)
-        })
-        val totalGrpcView = TextView(context).apply { text = if (totalGrpc > 0) totalGrpc.toString() else "-"; rowStyle(this) }
-        totalRow.addView(totalGrpcView)
-        totalRow.addView(View(context).apply {
-            layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
-            setBackgroundColor(Color.WHITE)
-        })
-        reportContainer.addView(totalRow)
-        reportContainer.addView(View(context).apply {
-            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 2)
-            setBackgroundColor(Color.WHITE)
-        })
     }
 }
