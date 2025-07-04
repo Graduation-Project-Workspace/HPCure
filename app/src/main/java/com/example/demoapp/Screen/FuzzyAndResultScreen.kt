@@ -1,6 +1,7 @@
 package com.example.demoapp.Screen
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
@@ -25,13 +26,18 @@ import androidx.core.content.ContextCompat
 import com.example.demoapp.Core.*
 import com.example.demoapp.R
 import com.example.demoapp.Utils.FileManager
+import com.example.demoapp.Utils.GpuDelegateHelper
+import com.example.demoapp.Utils.ReportEntry
 import com.example.demoapp.Utils.ResultsDataHolder
+import com.example.demoapp.Utils.ResultsDataHolder.reportEntries
 import com.example.domain.interfaces.tumor.IFuzzySystem
 import com.example.domain.model.CancerVolume
 import com.example.domain.model.MRISequence
 import com.example.domain.model.ROI
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -74,7 +80,6 @@ class FuzzyAndResultScreen : BaseActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         Log.d("FuzzyAndResultScreen", "onCreate called for FuzzyAndResultScreen")
         super.onCreate(savedInstanceState)
-        // setContentView(R.layout.fuzzy_and_result_screen) // Removed to allow Compose setContent
 
         roiTimeTaken = intent.getLongExtra("roi_time_taken", 0)
         seedTimeTaken = intent.getLongExtra("seed_time_taken", 0)
@@ -96,18 +101,27 @@ class FuzzyAndResultScreen : BaseActivity() {
         }
 
         // Check if we have the full MRI sequence in ResultsDataHolder
-        val fullMriSeq = com.example.demoapp.Utils.ResultsDataHolder.fullMriSequence
-        Log.d("FuzzyAndResultScreen", "onCreate: fullMriSeq is null: ${fullMriSeq == null}")
-        Log.d("FuzzyAndResultScreen", "onCreate: fullMriSeq images count: ${fullMriSeq?.images?.size}")
+        val fullMriSeq = ResultsDataHolder.fullMriSequence
         if (fullMriSeq == null || fullMriSeq.images.isEmpty()) {
-            Log.e("FuzzyAndResultScreen", "onCreate: No full MRI sequence available, returning to upload screen")
-            Toast.makeText(this, "No images loaded! Returning to upload screen.", Toast.LENGTH_LONG).show()
-            startActivity(Intent(this, UploadScreen::class.java).apply {
-                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            })
-            finish()
-            return
+            Log.w("FuzzyAndResultScreen", "fullMriSequence is null or empty, attempting to reload from disk")
+            val bitmaps = FileManager.getAllFiles().mapNotNull {
+                FileManager.getProcessedImage(this, it)
+            }
+            if (bitmaps.isNotEmpty()) {
+                ResultsDataHolder.fullMriSequence = MRISequence(
+                    images = bitmaps.toMutableList(),
+                    metadata = FileManager.getDicomMetadata()
+                )
+            } else {
+                Toast.makeText(this, "No images found. Returning to upload screen.", Toast.LENGTH_LONG).show()
+                startActivity(Intent(this, UploadScreen::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                })
+                finish()
+                return
+            }
         }
+
 
         // Initialize predictors after context is available
         roiPredictor = ParallelRoiPredictor(this)
@@ -257,7 +271,7 @@ class FuzzyAndResultScreen : BaseActivity() {
                 drawSeedPointInsideNormalizedRoi(tumorMriSequence.images[sliceIndex], tumorRoiList[sliceIndex], seedList[sliceIndex])
             }
             sliceIndex < tumorRoiList.size -> {
-                drawNormalizedRoiOnly(tumorMriSequence.images[sliceIndex], roiList[sliceIndex])
+                drawNormalizedRoiOnly(tumorMriSequence.images[sliceIndex], tumorRoiList[sliceIndex])
             }
             else -> {
                 tumorMriSequence.images[sliceIndex]
@@ -369,109 +383,190 @@ class FuzzyAndResultScreen : BaseActivity() {
                     resultsBtnGrpc.setTextColor(Color.parseColor(if (mode == "GRPC") "#000000" else "#FFFFFF"))
                 }
 
+                @SuppressLint("SetTextI18n")
                 fun performRecalculation() {
+                    Log.d("Recalculate", "Started recalculation, mode: $selectedMode")
+
                     showLoadingState(loadingOverlay, fuzzyCalculateButton)
                     fuzzyCalculateButton.isEnabled = false
                     resultsRecalculateButton.isEnabled = false
+
                     val activityContext = this@FuzzyAndResultScreen
+
                     CoroutineScope(Dispatchers.Default).launch {
                         try {
-                            // Always reset to full MRI sequence before any calculation
-                            val fullMriSeq = com.example.demoapp.Utils.ResultsDataHolder.fullMriSequence
-                            Log.d("FuzzyAndResultScreen", "performRecalculation: fullMriSeq is null: ${fullMriSeq == null}")
-                            Log.d("FuzzyAndResultScreen", "performRecalculation: fullMriSeq images count: ${fullMriSeq?.images?.size}")
-                            if (fullMriSeq != null) {
-                                // Create a deep copy to avoid modifying the original sequence
-                                tumorMriSequence.images = fullMriSeq.images.map { it.copy(it.config ?: Bitmap.Config.ARGB_8888, true) }.toMutableList()
-                            } else {
-                                // Fallback to the current MRI sequence if full sequence is not available
-                                val bitmaps = FileManager.getAllFiles().mapNotNull {
-                                    FileManager.getProcessedImage(activityContext, it)
-                                }
-                                val fallbackMriSeq = MRISequence(
-                                    images = bitmaps,
-                                    metadata = FileManager.getDicomMetadata()
-                                )
-                                tumorMriSequence.images = fallbackMriSeq.images.toMutableList()
+                            val fullSequence = ResultsDataHolder.fullMriSequence
+                            Log.d("Recalculate", "FullSequence loaded, images count: ${fullSequence?.images?.size}")
+
+                            if (fullSequence == null || fullSequence.images.isEmpty()) {
+                                Log.e("Recalculate", "Full MRI sequence null or empty, throwing exception")
+                                throw IllegalStateException("Full MRI sequence not available, please reload images.")
                             }
-                            val startTime: Long
-                            val elapsed: Long
+
+                            var startTime: Long = 0
+                            var elapsed: Long = 0
+                            sliceIndex = 0
+
+                            fun filterImagesAndRois(
+                                mriSequence: MRISequence,
+                                roiList: List<ROI>
+                            ): Pair<MRISequence, List<ROI>> {
+                                val filteredImages = mutableListOf<Bitmap>()
+                                val filteredRois = mutableListOf<ROI>()
+                                for ((index, roi) in roiList.withIndex()) {
+                                    if (roi.score > 0.3) {
+                                        filteredImages += mriSequence.images[index]
+                                        filteredRois += roi
+                                    }
+                                }
+                                Log.d("Recalculate", "Filtered images count: ${filteredImages.size}, ROIs count: ${filteredRois.size}")
+                                return MRISequence(images = filteredImages, metadata = mriSequence.metadata) to filteredRois
+                            }
+
                             if (selectedMode == "Parallel") {
                                 startTime = System.currentTimeMillis()
-                                val roiListParallel = roiPredictor.predictRoi(tumorMriSequence, useGpuDelegate = false, useAndroidNN = false, numThreads = 4)
-                                val seedListParallel = seedPredictor.predictSeed(tumorMriSequence, roiListParallel, useGpuDelegate = false, useAndroidNN = false, numThreads = 4).toList()
-                                cancerVolume = parallelFuzzySystem.estimateVolume(tumorMriSequence, roiListParallel, seedListParallel, currentAlphaCutValue)
-                                tumorRoiList = roiListParallel
+                                Log.d("Recalculate", "Starting Parallel ROI prediction")
+
+                                val roiListParallel = roiPredictor.predictRoi(
+                                    fullSequence,
+                                    useGpuDelegate = false,
+                                    useAndroidNN = false,
+                                    numThreads = 4
+                                )
+
+                                Log.d("Recalculate", "Parallel ROI prediction done, count: ${roiListParallel.size}")
+
+                                val (filteredMriSequence, filteredRois) = filterImagesAndRois(fullSequence, roiListParallel)
+
+                                val seedListParallel = seedPredictor.predictSeed(
+                                    filteredMriSequence,
+                                    filteredRois,
+                                    useGpuDelegate = false,
+                                    useAndroidNN = false,
+                                    numThreads = 4
+                                ).toList()
+
+                                Log.d("Recalculate", "Parallel seed prediction done, count: ${seedListParallel.size}")
+
+                                cancerVolume = parallelFuzzySystem.estimateVolume(
+                                    filteredMriSequence,
+                                    filteredRois,
+                                    seedListParallel,
+                                    currentAlphaCutValue
+                                )
+                                Log.d("Recalculate", "Parallel volume estimation done, volume: ${cancerVolume.volume}")
+
+                                tumorMriSequence = filteredMriSequence
+                                tumorRoiList = filteredRois
                                 seedList = seedListParallel.toTypedArray()
+
                                 elapsed = System.currentTimeMillis() - startTime
+                                roiPredictor.close()
+                                seedPredictor.close()
+                                GpuDelegateHelper.closeAllDelegates()
+
                             } else if (selectedMode == "Serial") {
+                                roiPredictor.close()
+                                seedPredictor.close()
+                                GpuDelegateHelper.closeAllDelegates()
+                                System.gc()
                                 startTime = System.currentTimeMillis()
-                                val roiListSerial = sequentialRoiPredictor.predictRoi(tumorMriSequence, useGpuDelegate = false, useAndroidNN = false, numThreads = 1)
-                                val seedListSerial = sequentialSeedPredictor.predictSeed(tumorMriSequence, roiListSerial, useGpuDelegate = false, useAndroidNN = false, numThreads = 1).toList()
-                                cancerVolume = sequentialFuzzySystem.estimateVolume(tumorMriSequence, roiListSerial, seedListSerial, currentAlphaCutValue)
-                                tumorRoiList = roiListSerial
+                                Log.d("Recalculate", "Starting Serial ROI prediction")
+
+                                val roiListSerial = sequentialRoiPredictor.predictRoi(
+                                    fullSequence,
+                                    useGpuDelegate = false,
+                                    useAndroidNN = false,
+                                    numThreads = 1
+                                )
+
+                                Log.d("Recalculate", "Serial ROI prediction done, count: ${roiListSerial.size}")
+
+                                val (filteredMriSequence, filteredRois) = filterImagesAndRois(fullSequence, roiListSerial)
+
+                                val seedListSerial = sequentialSeedPredictor.predictSeed(
+                                    filteredMriSequence,
+                                    filteredRois,
+                                    useGpuDelegate = false,
+                                    useAndroidNN = false,
+                                    numThreads = 1
+                                ).toList()
+
+                                Log.d("Recalculate", "Serial seed prediction done, count: ${seedListSerial.size}")
+
+                                cancerVolume = sequentialFuzzySystem.estimateVolume(
+                                    filteredMriSequence,
+                                    filteredRois,
+                                    seedListSerial,
+                                    currentAlphaCutValue
+                                )
+                                Log.d("Recalculate", "Serial volume estimation done, volume: ${cancerVolume.volume}")
+
+                                tumorMriSequence = filteredMriSequence
+                                tumorRoiList = filteredRois
                                 seedList = seedListSerial.toTypedArray()
+
                                 elapsed = System.currentTimeMillis() - startTime
-                            } else {
+
+                            } else if (selectedMode.equals("GRPC", ignoreCase = true)) {
                                 startTime = System.currentTimeMillis()
-                                // Always reset to full MRI sequence for gRPC as well
-                                val fullMriSeq = com.example.demoapp.Utils.ResultsDataHolder.fullMriSequence
-                                if (fullMriSeq != null) {
-                                    // Create a deep copy to avoid modifying the original sequence
-                                    tumorMriSequence.images = fullMriSeq.images.map { it.copy(it.config ?: Bitmap.Config.ARGB_8888, true) }.toMutableList()
-                                } else {
-                                    // Fallback to the current MRI sequence if full sequence is not available
-                                    val bitmaps = FileManager.getAllFiles().mapNotNull {
-                                        FileManager.getProcessedImage(activityContext, it)
-                                    }
-                                    val fallbackMriSeq = MRISequence(
-                                        images = bitmaps,
-                                        metadata = FileManager.getDicomMetadata()
-                                    )
-                                    tumorMriSequence.images = fallbackMriSeq.images.toMutableList()
-                                }
+                                Log.d("Recalculate", "Starting GRPC volume estimation")
+
                                 val volumeEstimator = VolumeEstimator(
                                     fuzzySystem = parallelFuzzySystem,
                                     seedPredictor = seedPredictor,
                                     roiPredictor = roiPredictor,
                                     network = SharedViewModel.getInstance(activityContext).network
                                 )
+
                                 cancerVolume = volumeEstimator.estimateVolumeGrpc(
-                                    mriSeq = tumorMriSequence,
+                                    mriSeq = fullSequence,
                                     alphaCutValue = currentAlphaCutValue
                                 )
+                                Log.d("Recalculate", "GRPC volume estimation done, volume: ${cancerVolume.volume}")
+
+                                tumorMriSequence = fullSequence
+
                                 elapsed = System.currentTimeMillis() - startTime
+
+                            } else {
+                                Log.e("Recalculate", "Unknown mode detected, throwing exception")
+                                throw IllegalStateException("Unknown mode: $selectedMode")
                             }
+
+                            Log.d("Recalculate", "Completed recalculation in mode: $selectedMode, Images: ${tumorMriSequence.images.size}, Time: ${elapsed}ms")
+
                             withContext(Dispatchers.Main) {
                                 hideLoadingState(loadingOverlay, fuzzyCalculateButton)
                                 fuzzyCalculateButton.isEnabled = true
                                 resultsRecalculateButton.isEnabled = true
-                                resultsTumorVolume.text =
-                                    "Tumor Volume: ${cancerVolume.volume} mm³"
-                                resultsPatientName.text =
-                                    "$selectedMode Computation Time: ${elapsed}ms"
-                                // Add report entry for Fuzzy step
-                                ResultsDataHolder.addOrUpdateReportEntry("Fuzzy", selectedMode, elapsed)
-                                if (selectedMode == "GRPC" || selectedMode == "gRPC") {
-                                    ResultsDataHolder.addOrUpdateReportEntry("Fuzzy", "gRPC", elapsed)
-                                    ResultsDataHolder.addOrUpdateReportEntry("Whole process", "gRPC", elapsed)
-                                }
+
+                                resultsTumorVolume.text = "Tumor Volume: ${cancerVolume.volume} mm³"
+                                resultsPatientName.text = "$selectedMode Computation Time: ${elapsed}ms"
+
+                                ResultsDataHolder.setWholeProcessTime(selectedMode, elapsed)
+
                                 showWholeProcessRow = true
                                 updateReportUI(view, resultsReportContainer, showWholeProcessRow)
                                 showResultsLayout()
+
+                                Log.d("Recalculate", "Calling loadCurrentResultsImage")
                                 loadCurrentResultsImage(resultsMriImage)
                             }
+
                         } catch (e: Exception) {
-                            Log.e("FuzzyAndResultScreen", "Error in gRPC volume estimation", e)
+                            Log.e("FuzzyAndResultScreen", "Error during recalculation in mode: $selectedMode", e)
                             withContext(Dispatchers.Main) {
                                 hideLoadingState(loadingOverlay, fuzzyCalculateButton)
                                 fuzzyCalculateButton.isEnabled = true
                                 resultsRecalculateButton.isEnabled = true
-                                Toast.makeText(ctx, "Error in volume calculation: ${e.message}", Toast.LENGTH_LONG).show()
+                                Toast.makeText(activityContext, "Error: ${e.message}", Toast.LENGTH_LONG).show()
                             }
                         }
                     }
                 }
+
+
 
                 fun navigateImage(direction: Int) {
                     val totalSlices = tumorMriSequence.images.size
@@ -584,7 +679,7 @@ class FuzzyAndResultScreen : BaseActivity() {
                         Toast.makeText(ctx, "FuzzySystem not initialized!", Toast.LENGTH_LONG).show()
                         return@setOnClickListener
                     }
-                    loadingOverlay.visibility = View.VISIBLE
+                    showLoadingState(loadingOverlay, fuzzyCalculateButton)
                     fuzzyCalculateButton.isEnabled = false
                     val startTime = System.currentTimeMillis()
                     CoroutineScope(Dispatchers.Default).launch {
@@ -592,19 +687,20 @@ class FuzzyAndResultScreen : BaseActivity() {
                         cancerVolume = fuzzySystem!!.estimateVolume(tumorMriSequence, tumorRoiList, seedList.toList(), alphaCut)
                         val elapsed = System.currentTimeMillis() - startTime
                         withContext(Dispatchers.Main) {
-                            loadingOverlay.visibility = View.GONE
+                            hideLoadingState(loadingOverlay, fuzzyCalculateButton)
                             fuzzyCalculateButton.isEnabled = true
                             fuzzyShowResultsButton.isEnabled = true
                             fuzzyCalculateButton.text = "Re-calculate Volume"
                             fuzzyTimeText.text = "${selectedMode} Time: ${elapsed}ms"
-                            com.example.demoapp.Utils.ResultsDataHolder.addOrUpdateReportEntry("Fuzzy", selectedMode, elapsed)
+                            ResultsDataHolder.addOrUpdateReportEntry("Fuzzy", selectedMode, elapsed)
                             updateReportUI(view, fuzzyReportContainer, false)
                         }
                     }
                 }
 
                 fuzzyShowResultsButton.setOnClickListener {
-                    updateReportUI(view, resultsReportContainer, true)
+                    showWholeProcessRow = false
+                    updateReportUI(view, resultsReportContainer, showWholeProcessRow)
                     showResultsLayout()
                 }
 
@@ -674,7 +770,7 @@ class FuzzyAndResultScreen : BaseActivity() {
             LinearLayout.LayoutParams.WRAP_CONTENT
         )
         // Fixed column width in pixels (adjust as needed)
-        val COLUMN_WIDTH = 280
+        val COLUMN_WIDTH = 275
         // Add table header
         val headerRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -734,7 +830,7 @@ class FuzzyAndResultScreen : BaseActivity() {
             tv.layoutParams = cellParams
             tv.setBackgroundColor(Color.rgb(7, 30, 34))
         }
-        com.example.demoapp.Utils.ResultsDataHolder.reportEntries
+        reportEntries
             .filter { it.step != "Whole process" }
             .forEachIndexed { idx, entry ->
                 val row = LinearLayout(context).apply {
@@ -780,9 +876,9 @@ class FuzzyAndResultScreen : BaseActivity() {
             }
         // Only add the 'Whole process' row if showWholeProcessRow is true
         if (showWholeProcessRow) {
-            val totalParallel = com.example.demoapp.Utils.ResultsDataHolder.getTotalParallel()
-            val totalSerial = com.example.demoapp.Utils.ResultsDataHolder.getTotalSerial()
-            val totalGrpc = com.example.demoapp.Utils.ResultsDataHolder.getTotalGrpc()
+            val totalParallel = ResultsDataHolder.wholeProcessParallelTime ?: 0
+            val totalSerial = ResultsDataHolder.wholeProcessSerialTime ?: 0
+            val totalGrpc = ResultsDataHolder.wholeProcessGrpcTime ?: 0
             val totalRow = LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
                 setPadding(0, 0, 0, 0)

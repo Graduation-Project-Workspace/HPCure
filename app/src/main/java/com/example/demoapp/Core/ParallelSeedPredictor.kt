@@ -221,4 +221,9 @@ class ParallelSeedPredictor : ISeedPredictor {
             }
         }
     }
+
+    fun close() {
+        interpreterPool.get()?.close()
+        interpreterPool.remove()
+    }
 }

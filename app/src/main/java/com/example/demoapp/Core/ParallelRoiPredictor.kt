@@ -252,4 +252,9 @@ class ParallelRoiPredictor : IRoiPredictor {
         inputBuffer.rewind()
         return inputBuffer
     }
+
+    fun close() {
+        interpreterPool.get()?.close()
+        interpreterPool.remove()
+    }
 }
