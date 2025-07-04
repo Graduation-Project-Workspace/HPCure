@@ -10,33 +10,28 @@ import com.example.demoapp.Utils.GpuDelegateHelper
 import com.example.domain.interfaces.tumor.ISeedPredictor
 import com.example.domain.model.MRISequence
 import com.example.domain.model.ROI
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.withContext
 import org.tensorflow.lite.Interpreter
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.channels.Channels
 
-class ParallelSeedPredictor : ISeedPredictor {
+object ParallelSeedPredictor : ISeedPredictor {
     private val inputSize = 512 // Model expects 512x512 input
     private lateinit var options: Interpreter.Options
     private val modelName = "seed-pose.tflite"
-    private companion object {
-        const val MAX_PARALLEL_REQUESTS = 4
-        const val MODEL_INPUT_SIZE = 512
-        const val OUTPUT_DIMENSIONS = 5376
-    }
 
-    private val assetManager: AssetManager
+    const val MAX_PARALLEL_REQUESTS = 4
+    const val MODEL_INPUT_SIZE = 512
+    const val OUTPUT_DIMENSIONS = 5376
+
+    private lateinit var assetManager: AssetManager
     private val modelFile by lazy { loadModelFile() }
     private val modelLock = Any()
     private val interpreterPool = ThreadLocal<Interpreter>()
 
-    constructor(context: Context) {
+    fun initialize(context: Context) {
         assetManager = context.assets
     }
 

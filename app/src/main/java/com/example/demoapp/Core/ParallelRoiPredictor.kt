@@ -10,27 +10,21 @@ import com.example.demoapp.Utils.GpuDelegateHelper
 import com.example.domain.interfaces.tumor.IRoiPredictor
 import com.example.domain.model.MRISequence
 import com.example.domain.model.ROI
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.withContext
 import org.tensorflow.lite.Interpreter
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
-class ParallelRoiPredictor : IRoiPredictor {
+object ParallelRoiPredictor : IRoiPredictor {
     private lateinit var options: Interpreter.Options
     private val inputSize = 512 // Model expects 512x512 input
     private val outputShape = intArrayOf(1, 5, 5376) // Based on Python output shape
     private val modelName = "breast_roi_model.tflite"
     // Constants
-    private companion object {
-        const val MAX_PARALLEL_REQUESTS = 4  // Optimal for most devices
-        const val MODEL_INPUT_SIZE = 512
-    }
+
+    const val MAX_PARALLEL_REQUESTS = 2  // Optimal for most devices
+    const val MODEL_INPUT_SIZE = 512
 
     // Shared model state (loaded once)
     private val modelFile by lazy { loadModelFile() }
@@ -38,9 +32,9 @@ class ParallelRoiPredictor : IRoiPredictor {
 
     // Thread-safe interpreter pool
     private val interpreterPool = ThreadLocal<Interpreter>()
-    private val assetManager: AssetManager
+    private lateinit var assetManager: AssetManager
 
-    constructor(context: Context) {
+    fun initialize(context: Context) {
         assetManager = context.assets
     }
 

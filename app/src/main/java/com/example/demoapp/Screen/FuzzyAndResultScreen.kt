@@ -27,7 +27,6 @@ import com.example.demoapp.Core.*
 import com.example.demoapp.R
 import com.example.demoapp.Utils.FileManager
 import com.example.demoapp.Utils.GpuDelegateHelper
-import com.example.demoapp.Utils.ReportEntry
 import com.example.demoapp.Utils.ResultsDataHolder
 import com.example.demoapp.Utils.ResultsDataHolder.reportEntries
 import com.example.domain.interfaces.tumor.IFuzzySystem
@@ -36,8 +35,6 @@ import com.example.domain.model.MRISequence
 import com.example.domain.model.ROI
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -124,8 +121,8 @@ class FuzzyAndResultScreen : BaseActivity() {
 
 
         // Initialize predictors after context is available
-        roiPredictor = ParallelRoiPredictor(this)
-        seedPredictor = ParallelSeedPredictor(this)
+        roiPredictor = ParallelRoiPredictor
+        seedPredictor = ParallelSeedPredictor
         sequentialRoiPredictor = SequentialRoiPredictor(this)
         sequentialSeedPredictor = SequentialSeedPredictor(this)
 
@@ -441,7 +438,7 @@ class FuzzyAndResultScreen : BaseActivity() {
                                 val seedListParallel = seedPredictor.predictSeed(
                                     filteredMriSequence,
                                     filteredRois,
-                                    useGpuDelegate = true,
+                                    useGpuDelegate = false,
                                     useAndroidNN = true,
                                     numThreads = 4
                                 ).toList()

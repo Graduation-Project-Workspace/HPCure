@@ -28,8 +28,8 @@ object SharedViewModel {
     
     fun getInstance(context: FragmentActivity): MainViewModel {
         if (instance == null) {
-            val roiPredictor = ParallelRoiPredictor(context)
-            val seedPredictor = ParallelSeedPredictor(context)
+            val roiPredictor = ParallelRoiPredictor
+            val seedPredictor = ParallelSeedPredictor
             instance = MainViewModelFactory(context, roiPredictor, seedPredictor)
                 .create(MainViewModel::class.java)
         }

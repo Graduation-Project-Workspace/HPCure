@@ -96,10 +96,10 @@ class SequentialRoiPredictor : IRoiPredictor {
         val imgW = sliceBitmap.width
         val imgH = sliceBitmap.height
 
-        val boxX = (xCenter * imgW).toInt()
-        val boxY = (yCenter * imgH).toInt()
-        val boxW = (width * imgW).toInt()
-        val boxH = (height * imgH).toInt()
+        val boxX = (xCenter).toInt()
+        val boxY = (yCenter).toInt()
+        val boxW = (width).toInt()
+        val boxH = (height).toInt()
 
         val x1 = (boxX - boxW / 2).coerceAtLeast(0)
         val y1 = (boxY - boxH / 2).coerceAtLeast(0)

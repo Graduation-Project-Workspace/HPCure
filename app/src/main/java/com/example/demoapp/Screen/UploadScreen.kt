@@ -13,6 +13,8 @@ import android.widget.ImageView
 import android.widget.RelativeLayout
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import com.example.demoapp.Core.ParallelRoiPredictor
+import com.example.demoapp.Core.ParallelSeedPredictor
 import com.example.demoapp.R
 import com.example.demoapp.Utils.FileManager
 import kotlinx.coroutines.CoroutineScope
@@ -30,6 +32,8 @@ class UploadScreen : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.upload_screen)
         FileManager.initialize(this)
+        ParallelRoiPredictor.initialize(this)
+        ParallelSeedPredictor.initialize(this)
 
         // Initialize gRPC components early
         try {

@@ -219,6 +219,20 @@
                 android:textColor="#FFFFFF" />
         </RelativeLayout>
 
+        <Button
+            android:id="@+id/skip_button"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_alignParentBottom="true"
+            android:layout_alignParentEnd="true"
+            android:layout_marginBottom="32dp"
+            android:layout_marginEnd="32dp"
+            android:background="@drawable/button_background"
+            android:text="→"
+            android:textColor="#FFFFFF"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+
         <!-- Loading Overlay -->
         <RelativeLayout
             android:id="@+id/loading_overlay"

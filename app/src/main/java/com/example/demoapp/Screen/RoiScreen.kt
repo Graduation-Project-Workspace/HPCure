@@ -19,14 +19,12 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import androidx.core.graphics.alpha
 import com.example.demoapp.Core.ParallelRoiPredictor
 import com.example.demoapp.Core.SequentialRoiPredictor
 import com.example.demoapp.R
 import com.example.demoapp.Utils.FileManager
 import com.example.demoapp.Utils.GpuDelegateHelper
 import com.example.demoapp.Utils.ResultsDataHolder
-import com.example.demoapp.Utils.ReportEntry
 import com.example.domain.interfaces.tumor.IRoiPredictor
 import com.example.domain.model.MRISequence
 import com.example.domain.model.ROI
@@ -82,7 +80,7 @@ class RoiScreen : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.shared_roi_seed_screen)
 
-        parallelRoiPredictor = ParallelRoiPredictor(context = context)
+        parallelRoiPredictor = ParallelRoiPredictor
         sequentialRoiPredictor = SequentialRoiPredictor(context = context)
         roiPredictor = parallelRoiPredictor
 
@@ -257,13 +255,14 @@ class RoiScreen : AppCompatActivity() {
                         tumorRoiList+= roi
                     }
                 }
-                sliceIndex = 0
 
                 val endTime = System.currentTimeMillis()
                 val timeTaken = endTime - startTime
 
                 // Add or update report entry for ROI step
                 withContext(Dispatchers.Main) {
+                    sliceIndex = 0
+                    loadCurrentImage()
                     ResultsDataHolder.addOrUpdateReportEntry("ROI", mode, timeTaken)
                     updateReportUI()
                     hideLoadingState()

@@ -24,7 +24,6 @@ import com.example.demoapp.R
 import com.example.demoapp.Utils.FileManager
 import com.example.demoapp.Utils.GpuDelegateHelper
 import com.example.demoapp.Utils.ResultsDataHolder
-import com.example.demoapp.Utils.ReportEntry
 import com.example.domain.interfaces.tumor.ISeedPredictor
 import com.example.domain.model.MRISequence
 import com.example.domain.model.ROI
@@ -81,7 +80,7 @@ class SeedScreen : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.shared_roi_seed_screen)
 
-        parallelSeedPredictor = ParallelSeedPredictor(context)
+        parallelSeedPredictor = ParallelSeedPredictor
         sequentialSeedPredictor = SequentialSeedPredictor(context)
         seedPredictor = parallelSeedPredictor
 
