@@ -219,6 +219,7 @@
                 android:textColor="#FFFFFF" />
         </RelativeLayout>
 
+        <!--
         <Button
             android:id="@+id/skip_button"
             android:layout_width="48dp"
@@ -232,6 +233,7 @@
             android:textColor="#FFFFFF"
             android:textSize="20sp"
             android:textStyle="bold" />
+        -->
 
         <!-- Loading Overlay -->
         <RelativeLayout
