@@ -429,8 +429,8 @@ class FuzzyAndResultScreen : BaseActivity() {
 
                                 val roiListParallel = roiPredictor.predictRoi(
                                     fullSequence,
-                                    useGpuDelegate = false,
-                                    useAndroidNN = false,
+                                    useGpuDelegate = true,
+                                    useAndroidNN = true,
                                     numThreads = 4
                                 )
 
@@ -441,8 +441,8 @@ class FuzzyAndResultScreen : BaseActivity() {
                                 val seedListParallel = seedPredictor.predictSeed(
                                     filteredMriSequence,
                                     filteredRois,
-                                    useGpuDelegate = false,
-                                    useAndroidNN = false,
+                                    useGpuDelegate = true,
+                                    useAndroidNN = true,
                                     numThreads = 4
                                 ).toList()
 
@@ -690,6 +690,7 @@ class FuzzyAndResultScreen : BaseActivity() {
                             hideLoadingState(loadingOverlay, fuzzyCalculateButton)
                             fuzzyCalculateButton.isEnabled = true
                             fuzzyShowResultsButton.isEnabled = true
+                            updateShowResultsButtonStyle(fuzzyShowResultsButton, true)
                             fuzzyCalculateButton.text = "Re-calculate Volume"
                             fuzzyTimeText.text = "${selectedMode} Time: ${elapsed}ms"
                             ResultsDataHolder.addOrUpdateReportEntry("Fuzzy", selectedMode, elapsed)
@@ -702,6 +703,7 @@ class FuzzyAndResultScreen : BaseActivity() {
                     showWholeProcessRow = false
                     updateReportUI(view, resultsReportContainer, showWholeProcessRow)
                     showResultsLayout()
+                    loadCurrentResultsImage(resultsMriImage)
                 }
 
                 // Set up alpha cut control
@@ -742,13 +744,18 @@ class FuzzyAndResultScreen : BaseActivity() {
                         // Initial setup
                         hideLoadingState()
                         setMode("Parallel")
-                        loadCurrentImage(fuzzyMriImage, fuzzyPrevImage, fuzzyNextImage, resultsPrevImage, resultsNextImage)
-                        updateImageCount(fuzzyImageCount, resultsImageCount)
+                        if (tumorMriSequence.images.isNotEmpty()) {
+                            loadCurrentImage(fuzzyMriImage, fuzzyPrevImage, fuzzyNextImage, resultsPrevImage, resultsNextImage)
+                            updateImageCount(fuzzyImageCount, resultsImageCount)
+                        } else {
+                            Toast.makeText(ctx, "No valid slices found for display.", Toast.LENGTH_LONG).show()
+                        }
                         showFuzzyLayout()
                     }
                 }
 
                 fuzzyShowResultsButton.isEnabled = false
+                updateShowResultsButtonStyle(fuzzyShowResultsButton, false)
                 fuzzyCalculateButton.text = "Calculate Volume"
                 fuzzyTimeText.text = ""
                 updateReportUI(view, fuzzyReportContainer, false)
@@ -762,6 +769,11 @@ class FuzzyAndResultScreen : BaseActivity() {
     private fun updateReportUI(view: View, reportContainer: LinearLayout, showWholeProcessRow: Boolean) {
         reportContainer.removeAllViews()
         val context = view.context
+        
+        // Check if gRPC column should be shown
+        val hasGrpcData = reportEntries.any { it.grpcTime != null } || 
+                         (showWholeProcessRow && ResultsDataHolder.wholeProcessGrpcTime != null)
+        
         // Center the table horizontally
         reportContainer.gravity = android.view.Gravity.CENTER_HORIZONTAL
         // Table layout params
@@ -770,7 +782,7 @@ class FuzzyAndResultScreen : BaseActivity() {
             LinearLayout.LayoutParams.WRAP_CONTENT
         )
         // Fixed column width in pixels (adjust as needed)
-        val COLUMN_WIDTH = 275
+        val COLUMN_WIDTH = 270
         // Add table header
         val headerRow = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -786,9 +798,9 @@ class FuzzyAndResultScreen : BaseActivity() {
         }
         val headerStyle = { tv: TextView ->
             tv.setTypeface(null, android.graphics.Typeface.BOLD)
-            tv.textSize = 18f
+            tv.textSize = 16f
             tv.gravity = android.view.Gravity.CENTER
-            tv.setPadding(24, 16, 24, 16)
+            tv.setPadding(20, 14, 20, 14)
             tv.layoutParams = cellParams
             tv.setBackgroundColor(Color.LTGRAY)
         }
@@ -810,23 +822,28 @@ class FuzzyAndResultScreen : BaseActivity() {
         })
         val serialHeader = TextView(context).apply { text = "Serial Time (ms)"; headerStyle(this) }
         headerRow.addView(serialHeader)
-        headerRow.addView(View(context).apply {
-            layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
-            setBackgroundColor(Color.WHITE)
-        })
-        val grpcHeader = TextView(context).apply { text = "gRPC Time (ms)"; headerStyle(this) }
-        headerRow.addView(grpcHeader)
-        headerRow.addView(View(context).apply {
-            layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
-            setBackgroundColor(Color.WHITE)
-        })
+        
+        // Only add gRPC header if there's gRPC data
+        if (hasGrpcData) {
+            headerRow.addView(View(context).apply {
+                layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
+                setBackgroundColor(Color.WHITE)
+            })
+            val grpcHeader = TextView(context).apply { text = "gRPC Time (ms)"; headerStyle(this) }
+            headerRow.addView(grpcHeader)
+            headerRow.addView(View(context).apply {
+                layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
+                setBackgroundColor(Color.WHITE)
+            })
+        }
+        
         reportContainer.addView(headerRow)
         val rowStyle = { tv: TextView ->
             tv.setTypeface(null, android.graphics.Typeface.BOLD)
-            tv.textSize = 17f
+            tv.textSize = 15f
             tv.setTextColor(Color.WHITE)
             tv.gravity = android.view.Gravity.CENTER
-            tv.setPadding(24, 12, 24, 12)
+            tv.setPadding(20, 10, 20, 10)
             tv.layoutParams = cellParams
             tv.setBackgroundColor(Color.rgb(7, 30, 34))
         }
@@ -861,12 +878,16 @@ class FuzzyAndResultScreen : BaseActivity() {
                     layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
                     setBackgroundColor(Color.WHITE)
                 })
-                val grpcView = TextView(context).apply { text = entry.grpcTime?.toString() ?: "-"; rowStyle(this) }
-                row.addView(grpcView)
-                row.addView(View(context).apply {
-                    layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
-                    setBackgroundColor(Color.WHITE)
-                })
+                
+                // Only add gRPC column if there's gRPC data
+                if (hasGrpcData) {
+                    val grpcView = TextView(context).apply { text = entry.grpcTime?.toString() ?: "-"; rowStyle(this) }
+                    row.addView(grpcView)
+                    row.addView(View(context).apply {
+                        layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
+                        setBackgroundColor(Color.WHITE)
+                    })
+                }
                 reportContainer.addView(row)
                 // Add horizontal separator after each row
                 reportContainer.addView(View(context).apply {
@@ -903,21 +924,39 @@ class FuzzyAndResultScreen : BaseActivity() {
             })
             val totalSerialView = TextView(context).apply { text = if (totalSerial > 0) totalSerial.toString() else "-"; rowStyle(this) }
             totalRow.addView(totalSerialView)
-            totalRow.addView(View(context).apply {
-                layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
-                setBackgroundColor(Color.WHITE)
-            })
-            val totalGrpcView = TextView(context).apply { text = if (totalGrpc > 0) totalGrpc.toString() else "-"; rowStyle(this) }
-            totalRow.addView(totalGrpcView)
-            totalRow.addView(View(context).apply {
-                layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
-                setBackgroundColor(Color.WHITE)
-            })
+            
+            // Only add gRPC column if there's gRPC data
+            if (hasGrpcData) {
+                totalRow.addView(View(context).apply {
+                    layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
+                    setBackgroundColor(Color.WHITE)
+                })
+                val totalGrpcView = TextView(context).apply { text = if (totalGrpc > 0) totalGrpc.toString() else "-"; rowStyle(this) }
+                totalRow.addView(totalGrpcView)
+                totalRow.addView(View(context).apply {
+                    layoutParams = LinearLayout.LayoutParams(2, LinearLayout.LayoutParams.MATCH_PARENT)
+                    setBackgroundColor(Color.WHITE)
+                })
+            }
             reportContainer.addView(totalRow)
             reportContainer.addView(View(context).apply {
                 layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 2)
                 setBackgroundColor(Color.WHITE)
             })
+        }
+    }
+
+    private fun updateShowResultsButtonStyle(button: Button, isEnabled: Boolean) {
+        if (isEnabled) {
+            button.background = getDrawable(R.drawable.rounded_bg)?.apply {
+                setTint(Color.parseColor("#B8BEBF"))
+            }
+            button.setTextColor(Color.parseColor("#071E22"))
+        } else {
+            button.background = getDrawable(R.drawable.rounded_bg)?.apply {
+                setTint(Color.parseColor("#CCCCCC"))
+            }
+            button.setTextColor(Color.parseColor("#666666"))
         }
     }
 }

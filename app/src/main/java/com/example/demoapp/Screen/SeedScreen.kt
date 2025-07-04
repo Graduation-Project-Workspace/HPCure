@@ -114,6 +114,7 @@ class SeedScreen : AppCompatActivity() {
         predictButton.text = "PREDICT SEED"
         hasPredicted = false
         nextButton.isEnabled = false
+        updateNextButtonStyle(nextButton, false)
 
         // Add ROI report entry if passed from previous screen and not present
         val roiTime = intent.getLongExtra("roi_time_taken", -1)
@@ -290,6 +291,7 @@ class SeedScreen : AppCompatActivity() {
                     hasPredicted = true
                     predictButton.text = "RE-PREDICT SEED"
                     nextButton.isEnabled = true
+                    updateNextButtonStyle(nextButton, true)
                 }
             }
         }
@@ -413,6 +415,20 @@ class SeedScreen : AppCompatActivity() {
             loadingOverlay.visibility = View.GONE
             predictButton.isEnabled = true
         }.start()
+    }
+
+    private fun updateNextButtonStyle(button: Button, isEnabled: Boolean) {
+        if (isEnabled) {
+            button.background = getDrawable(R.drawable.rounded_bg)?.apply {
+                setTint(Color.parseColor("#B8BEBF"))
+            }
+            button.setTextColor(Color.parseColor("#071E22"))
+        } else {
+            button.background = getDrawable(R.drawable.rounded_bg)?.apply {
+                setTint(Color.parseColor("#CCCCCC"))
+            }
+            button.setTextColor(Color.parseColor("#666666"))
+        }
     }
 
     private fun loadCurrentImage() {

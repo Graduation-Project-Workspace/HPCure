@@ -19,6 +19,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.alpha
 import com.example.demoapp.Core.ParallelRoiPredictor
 import com.example.demoapp.Core.SequentialRoiPredictor
 import com.example.demoapp.R
@@ -105,6 +106,7 @@ class RoiScreen : AppCompatActivity() {
         predictButton.text = "PREDICT ROI"
         hasPredicted = false
         nextButton.isEnabled = false
+        updateNextButtonStyle(nextButton, false)
         nextButton.setOnClickListener {
             val intent = Intent(this, SeedScreen::class.java)
             intent.putExtra("roi_list", ArrayList(roiList))
@@ -268,6 +270,7 @@ class RoiScreen : AppCompatActivity() {
                     hasPredicted = true
                     predictButton.text = "RE-PREDICT ROI"
                     nextButton.isEnabled = true
+                    updateNextButtonStyle(nextButton, true)
                 }
             }
         }
@@ -397,6 +400,20 @@ class RoiScreen : AppCompatActivity() {
                 predictButton.isEnabled = true
             }
             .start()
+    }
+
+    private fun updateNextButtonStyle(button: Button, isEnabled: Boolean) {
+        if (isEnabled) {
+            button.background = getDrawable(R.drawable.rounded_bg)?.apply {
+                setTint(Color.parseColor("#B8BEBF"))
+            }
+            button.setTextColor(Color.parseColor("#071E22"))
+        } else {
+            button.background = getDrawable(R.drawable.rounded_bg)?.apply {
+                setTint(Color.parseColor("#CCCCCC"))
+            }
+            button.setTextColor(Color.parseColor("#666666"))
+        }
     }
 
     private fun loadCurrentImage() {
