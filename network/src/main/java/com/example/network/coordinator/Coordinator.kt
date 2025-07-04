@@ -5,6 +5,7 @@ import com.example.domain.interfaces.network.INetworkService
 import com.example.domain.interfaces.tumor.IRoiPredictor
 import com.example.domain.interfaces.tumor.ISeedPredictor
 import com.example.domain.interfaces.network.WorkerResult
+import com.example.domain.interfaces.tumor.IFuzzySystem
 import com.example.network.computation.VolumeEstimateComputationStrategy
 import com.example.network.ui.*
 import com.example.network.util.*
@@ -17,14 +18,14 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
 /**
- * Coordinator is a gRPC server implementation of MatrixService, acting as a coordinator and a local worker.
+ * Coordinator is a gRPC server implementation of TaskService, acting as a coordinator and a local worker.
  * It handles worker registration, task distribution, computation (local and remote),
  * and aggregates the results from multiple workers.
  */
 class Coordinator(
     private val logs: MutableList<String>,
     private val localAddress: String,
-    private val matrixFriendlyName: String,
+    private val taskFriendlyName: String,
     private val roiPredictor: IRoiPredictor,
     private val seedPredictor: ISeedPredictor,
     private val networkService: INetworkService,
@@ -37,7 +38,7 @@ class Coordinator(
         seedPredictor = seedPredictor
     )
     private val workers = ConcurrentHashMap.newKeySet<Pair<String, String>>().apply {
-        add(localAddress to matrixFriendlyName)
+        add(localAddress to taskFriendlyName)
     }
     private val stubs = ConcurrentHashMap<String, TaskServiceGrpc.TaskServiceBlockingStub>()
     private val workerPerformance = ConcurrentHashMap<String, WorkerMetrics>()
@@ -72,7 +73,7 @@ class Coordinator(
         if (request.workerAddress.isEmpty() && request.friendlyName.isEmpty()) {
             val response = RegisterWorkerResponse.newBuilder()
                 .setSuccess(true)
-                .setFriendlyName(matrixFriendlyName)
+                .setFriendlyName(taskFriendlyName)
                 .build()
             responseObserver.onNext(response)
             responseObserver.onCompleted()
@@ -82,7 +83,7 @@ class Coordinator(
         registerWorkerInternal(request)
         val response = RegisterWorkerResponse.newBuilder()
             .setSuccess(true)
-            .setFriendlyName(matrixFriendlyName)
+            .setFriendlyName(taskFriendlyName)
             .build()
         responseObserver.onNext(response)
         responseObserver.onCompleted()

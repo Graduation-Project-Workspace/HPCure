@@ -438,7 +438,7 @@ class FuzzyAndResultScreen : BaseActivity() {
                                 val seedListParallel = seedPredictor.predictSeed(
                                     filteredMriSequence,
                                     filteredRois,
-                                    useGpuDelegate = false,
+                                    useGpuDelegate = true,
                                     useAndroidNN = true,
                                     numThreads = 4
                                 ).toList()

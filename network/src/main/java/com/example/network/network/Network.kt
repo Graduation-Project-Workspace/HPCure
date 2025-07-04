@@ -109,7 +109,7 @@ class GrpcNetwork(
         val coordinator = Coordinator(
             logs = logs,
             localAddress = localAddress,
-            matrixFriendlyName = friendlyName,
+            taskFriendlyName = friendlyName,
             roiPredictor = roiPredictor,
             seedPredictor = seedPredictor,
             networkService = this

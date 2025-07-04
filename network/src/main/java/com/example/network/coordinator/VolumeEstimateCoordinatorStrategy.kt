@@ -18,16 +18,20 @@ class VolumeEstimateCoordinatorStrategy(
 ) : ICoordinatorStrategy {
     
     fun convertMRISequenceToRequest(mriSeq: MRISequence, alphaCutValue: Float): AssignTaskRequest {
-        // Convert MRISequence to protobuf format
-        val slices = mriSeq.images.mapIndexed { index, bitmap ->
-            val stream = ByteArrayOutputStream()
-            bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, stream)
-            ImageSlice.newBuilder()
-                .setImageData(com.google.protobuf.ByteString.copyFrom(stream.toByteArray()))
-                .setWidth(bitmap.width)
-                .setHeight(bitmap.height)
-                .setSliceIndex(index)
-                .build()
+        // Parallel image serialization
+        val slices = runBlocking {
+            mriSeq.images.mapIndexed { index, bitmap ->
+                async(Dispatchers.Default) {
+                    val stream = ByteArrayOutputStream()
+                    bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, stream)
+                    ImageSlice.newBuilder()
+                        .setImageData(com.google.protobuf.ByteString.copyFrom(stream.toByteArray()))
+                        .setWidth(bitmap.width)
+                        .setHeight(bitmap.height)
+                        .setSliceIndex(index)
+                        .build()
+                }
+            }.awaitAll()
         }
 
         // Create the initial request
@@ -96,35 +100,60 @@ class VolumeEstimateCoordinatorStrategy(
         val workerInfo = mutableMapOf<String, RowIndices>()
         val friendlyNames = mutableMapOf<String, String>()
 
-        results.forEach { (workerAddress, result) ->
-            val volumeResponse = result.response.volumeEstimateResponse
-            
-            // Add ROIs and seed points in order based on the assigned range
-            val startIndex = result.assignedRange.first()
-            volumeResponse.roisList.forEachIndexed { index, roi ->
-                if (startIndex + index < totalSize) {
-                    aggregatedRois[startIndex + index] = ROI(
-                        xMin = roi.xMin,
-                        yMin = roi.yMin,
-                        xMax = roi.xMax,
-                        yMax = roi.yMax
-                    )
+        // Parallel processing of worker results
+        runBlocking {
+            val jobs = results.map { (workerAddress, result) ->
+                async(Dispatchers.Default) {
+                    val volumeResponse = result.response.volumeEstimateResponse
+                    val startIndex = result.assignedRange.first()
+                    
+                    // Process ROIs for this worker
+                    val workerRois = volumeResponse.roisList.mapIndexed { index, roi ->
+                        val globalIndex = startIndex + index
+                        if (globalIndex < totalSize) {
+                            globalIndex to ROI(
+                                xMin = roi.xMin,
+                                yMin = roi.yMin,
+                                xMax = roi.xMax,
+                                yMax = roi.yMax
+                            )
+                        } else null
+                    }.filterNotNull()
+                    
+                    // Process seed points for this worker
+                    val workerSeeds = volumeResponse.seedPointsList.mapIndexed { index, seedPoint ->
+                        val globalIndex = startIndex + index
+                        if (globalIndex < totalSize) {
+                            globalIndex to seedPoint
+                        } else null
+                    }.filterNotNull()
+                    
+                    // Create worker info
+                    val workerInfoEntry = workerAddress to RowIndices.newBuilder()
+                        .addAllValues(result.assignedRange)
+                        .build()
+                    
+                    // Create friendly name entry
+                    val friendlyNameEntry = workerAddress to (result.response.friendlyNamesMap[workerAddress] ?: workerAddress)
+                    
+                    Triple(workerRois, workerSeeds, Pair(workerInfoEntry, friendlyNameEntry))
                 }
             }
             
-            volumeResponse.seedPointsList.forEachIndexed { index, seedPoint ->
-                if (startIndex + index < totalSize) {
-                    aggregatedSeedPoints[startIndex + index] = seedPoint
+            // Collect all results and merge them
+            val processedResults = jobs.awaitAll()
+            
+            // Merge ROIs and seeds in parallel
+            processedResults.forEach { (rois, seeds, info) ->
+                rois.forEach { (index, roi) ->
+                    aggregatedRois[index] = roi
                 }
+                seeds.forEach { (index, seed) ->
+                    aggregatedSeedPoints[index] = seed
+                }
+                workerInfo[info.first.first] = info.first.second
+                friendlyNames[info.second.first] = info.second.second
             }
-
-            // Add worker info
-            workerInfo[workerAddress] = RowIndices.newBuilder()
-                .addAllValues(result.assignedRange)
-                .build()
-
-            // Add friendly name
-            friendlyNames[workerAddress] = result.response.friendlyNamesMap[workerAddress] ?: workerAddress
         }
 
         return AssignTaskResponse.newBuilder()

@@ -11,6 +11,10 @@ import com.example.protos.AssignTaskResponse
 import com.example.protos.VolumeEstimateResponse
 import com.example.protos.SeedPoint
 import android.graphics.BitmapFactory
+import android.util.Log
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.async
+import kotlinx.coroutines.Dispatchers
 
 class VolumeEstimateComputationStrategy(
     private val roiPredictor: IRoiPredictor,
@@ -28,30 +32,59 @@ class VolumeEstimateComputationStrategy(
 
     override fun computeTask(request: AssignTaskRequest): AssignTaskResponse {
         val volumeRequest = request.volumeEstimateRequest
+        
+        Log.d("GRPC_WORKER", "Received ${volumeRequest.slicesCount} slices for parallel ROI/Seed computation")
+
+        // Parallel processing for each slice
+        val results = runBlocking {
+            volumeRequest.slicesList.mapIndexed { sliceIdx, slice ->
+                async(Dispatchers.Default) {
+                    // Convert slice data to bitmap
+                    val bitmap = BitmapFactory.decodeByteArray(slice.imageData.toByteArray(), 0, slice.imageData.size())
+                    
+                    // Create MRISequence with single bitmap
+                    val mriSequence = MRISequence(listOf(bitmap), HashMap())
+                    
+                    // Get ROI prediction using the MRISequence overload
+                    val roiList = roiPredictor.predictRoi(mriSequence, true)
+                    val roi = roiList.firstOrNull() ?: ROI(0, 0, slice.width, slice.height)
+                    
+                    // Only process if ROI score > 0.3
+                    if (roi.score > 0.3) {
+                        val seedPointArray = seedPredictor.predictSeed(mriSequence, listOf(roi), true)
+                        val seedPoint = seedPointArray.firstOrNull() ?: Pair(
+                            roi.xMin + (roi.xMax - roi.xMin) / 2, 
+                            roi.yMin + (roi.yMax - roi.yMin) / 2
+                        )
+                        
+                        val protoSeed = SeedPoint.newBuilder()
+                            .setX(seedPoint.first)
+                            .setY(seedPoint.second)
+                            .build()
+                        
+                        Log.d("GRPC_WORKER", "Slice $sliceIdx PASSED threshold: ROI(${roi.xMin},${roi.yMin},${roi.xMax},${roi.yMax}, score=${roi.score}), Seed(${seedPoint.first},${seedPoint.second})")
+                        
+                        // Return slice index with results for proper aggregation
+                        Triple(sliceIdx, roi, protoSeed)
+                    } else {
+                        Log.d("GRPC_WORKER", "Slice $sliceIdx FAILED threshold: ROI score=${roi.score} <= 0.3, skipping")
+                        null
+                    }
+                }
+            }.map { it.await() }.filterNotNull()
+        }
+
         val rois = mutableListOf<ROI>()
         val seedPoints = mutableListOf<SeedPoint>()
 
-        volumeRequest.slicesList.forEach { slice ->
-            // Convert slice data to bitmap
-            val bitmap = BitmapFactory.decodeByteArray(slice.imageData.toByteArray(), 0, slice.imageData.size())
-            
-            // Create MRISequence with single bitmap
-            val mriSequence = MRISequence(listOf(bitmap), HashMap())
-            
-            // Get ROI prediction using the MRISequence overload
-            val roiList = roiPredictor.predictRoi(mriSequence)
-            val roi = roiList.firstOrNull() ?: ROI(0, 0, slice.width, slice.height)
-            rois.add(roi)
-
-            // Get seed point prediction using the MRISequence overload
-            val seedPointArray = seedPredictor.predictSeed(mriSequence, listOf(roi))
-            val seedPoint = seedPointArray.firstOrNull() ?: Pair(roi.xMin + (roi.xMax - roi.xMin) / 2, roi.yMin + (roi.yMax - roi.yMin) / 2)
-            
-            seedPoints.add(SeedPoint.newBuilder()
-                .setX(seedPoint.first)
-                .setY(seedPoint.second)
-                .build())
+        results.forEach { (sliceIdx, roi, seed) ->
+            // Add slice index to ROI for proper aggregation
+            val roiWithIndex = roi.copy(sliceIndex = sliceIdx)
+            rois.add(roiWithIndex)
+            seedPoints.add(seed)
         }
+
+        Log.d("GRPC_WORKER", "Returning ${rois.size} valid ROIs and ${seedPoints.size} seeds (filtered from ${volumeRequest.slicesCount} slices)")
 
         return AssignTaskResponse.newBuilder()
             .setVolumeEstimateResponse(
@@ -62,6 +95,7 @@ class VolumeEstimateComputationStrategy(
                             .setYMin(roi.yMin)
                             .setXMax(roi.xMax)
                             .setYMax(roi.yMax)
+                            .setSliceIndex(roi.sliceIndex)
                             .build()
                     })
                     .addAllSeedPoints(seedPoints)

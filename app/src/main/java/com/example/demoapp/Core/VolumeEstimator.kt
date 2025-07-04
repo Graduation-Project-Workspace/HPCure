@@ -27,7 +27,7 @@ class VolumeEstimator(
             
             // Step 1: Get available workers
             val availableWorkers = network.getAvailableWorkers()
-            if (availableWorkers.isEmpty()) {
+            if (availableWorkers.isEmpty() || availableWorkers.size == 1) {
                 Log.w("VolumeEstimator", "No workers available, falling back to local computation")
                 return estimateVolumeLocal(mriSeq, alphaCutValue)
             }
