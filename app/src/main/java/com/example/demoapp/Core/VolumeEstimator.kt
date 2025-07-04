@@ -2,16 +2,15 @@ package com.example.demoapp.Core
 import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
-import com.example.domain.model.LogRepository
-import com.example.domain.interfaces.tumor.IFuzzySystem
 import com.example.domain.interfaces.network.INetworkService
+import com.example.domain.interfaces.tumor.IFuzzySystem
 import com.example.domain.interfaces.tumor.IRoiPredictor
 import com.example.domain.interfaces.tumor.ISeedPredictor
 import com.example.domain.model.CancerVolume
+import com.example.domain.model.LogRepository
 import com.example.domain.model.MRISequence
 import com.example.domain.model.ROI
 import com.example.network.coordinator.VolumeEstimateCoordinatorStrategy
-import android.graphics.Bitmap
 
 @RequiresApi(Build.VERSION_CODES.N)
 class VolumeEstimator(
@@ -73,17 +72,23 @@ class VolumeEstimator(
         
         // Step 1: ROI prediction (local)
         val roiList = roiPredictor.predictRoi(mriSeq)
-        
+
+        val filteredMriSeq = MRISequence(
+            images = emptyList(),
+            metadata = mriSeq.metadata
+        )
+
+        val filteredRoiList = emptyList<ROI>().toMutableList()
+        for ((index, roi) in roiList.withIndex()) {
+            if (roi.score > 0.3) {
+                filteredMriSeq.images+= mriSeq.images[index]
+                filteredRoiList+= roi
+            }
+        }
+
         // Step 2: Seed prediction (local)
         val seedPoints = seedPredictor.predictSeed(mriSeq, roiList).toList()
-        
-        // filtered mri sequence
-        val filteredMriSeq = MRISequence(
-            images = mriSeq.images.filterIndexed { index, _ ->
-                roiList.any { it.sliceIndex == index }
-            },
-            metadata = mriSeq.metadata
-        )   
+
 
         // Step 3: Volume calculation (local)
         val cancerVolume = fuzzySystem.estimateVolume(
