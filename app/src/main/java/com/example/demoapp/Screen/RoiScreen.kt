@@ -262,6 +262,7 @@ class RoiScreen : AppCompatActivity() {
                 // Add or update report entry for ROI step
                 withContext(Dispatchers.Main) {
                     sliceIndex = 0
+                    updateImageCount()
                     loadCurrentImage()
                     ResultsDataHolder.addOrUpdateReportEntry("ROI", mode, timeTaken)
                     updateReportUI()

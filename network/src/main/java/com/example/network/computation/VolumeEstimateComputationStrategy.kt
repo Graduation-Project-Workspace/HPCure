@@ -95,6 +95,7 @@ class VolumeEstimateComputationStrategy(
                             .setYMin(roi.yMin)
                             .setXMax(roi.xMax)
                             .setYMax(roi.yMax)
+                            .setScore(roi.score)
                             .setSliceIndex(roi.sliceIndex)
                             .build()
                     })

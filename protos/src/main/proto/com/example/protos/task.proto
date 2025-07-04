@@ -79,7 +79,8 @@ message ROI {
   int32 y_min = 2;
   int32 x_max = 3;
   int32 y_max = 4;
-  int32 slice_index = 5;  // Index of the slice this ROI belongs to
+  float score = 5;
+  int32 slice_index = 6;  // Index of the slice this ROI belongs to
 }
 
 message SeedPoint {
