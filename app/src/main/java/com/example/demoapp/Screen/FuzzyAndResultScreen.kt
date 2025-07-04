@@ -512,13 +512,14 @@ class FuzzyAndResultScreen : BaseActivity() {
                                     network = SharedViewModel.getInstance(activityContext).network
                                 )
 
-                                cancerVolume = volumeEstimator.estimateVolumeGrpc(
+                                val (cancerVolume, filteredMriSeq) = volumeEstimator.estimateVolumeGrpc(
                                     mriSeq = fullSequence,
                                     alphaCutValue = currentAlphaCutValue
                                 )
                                 Log.d("Recalculate", "GRPC volume estimation done, volume: ${cancerVolume.volume}")
 
-                                tumorMriSequence = fullSequence
+                                // Use the filtered data from gRPC result for display
+                                tumorMriSequence = filteredMriSeq
 
                                 elapsed = System.currentTimeMillis() - startTime
 
