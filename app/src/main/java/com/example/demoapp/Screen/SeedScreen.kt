@@ -81,7 +81,7 @@ class SeedScreen : AppCompatActivity() {
         setContentView(R.layout.shared_roi_seed_screen)
 
         parallelSeedPredictor = ParallelSeedPredictor
-        sequentialSeedPredictor = SequentialSeedPredictor(context)
+        sequentialSeedPredictor = SequentialSeedPredictor
         seedPredictor = parallelSeedPredictor
 
         roiTimeTaken = intent.getLongExtra("roi_time_taken", 0)
@@ -270,7 +270,8 @@ class SeedScreen : AppCompatActivity() {
                     seedList = seedPredictor.predictSeed(
                         mriSeq = tumorMriSequence,
                         roiList = tumorRoiList,
-                        useGpuDelegate = isGPUEnabled
+                        useGpuDelegate = isGPUEnabled,
+                        numThreads = 1
                     )
                 } catch (e: Exception) {
                     withContext(Dispatchers.Main) {

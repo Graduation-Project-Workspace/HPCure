@@ -14,12 +14,12 @@ import org.tensorflow.lite.Interpreter
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
-class SequentialSeedPredictor : ISeedPredictor {
+object SequentialSeedPredictor : ISeedPredictor {
     private lateinit var tflite: Interpreter
-    private val assetManager: AssetManager
+    private lateinit var assetManager: AssetManager
     private val inputSize = 512 // Model expects 512x512 input
 
-    constructor(context: Context) {
+    fun initialize(context: Context) {
         assetManager = context.assets
     }
 

@@ -123,8 +123,8 @@ class FuzzyAndResultScreen : BaseActivity() {
         // Initialize predictors after context is available
         roiPredictor = ParallelRoiPredictor
         seedPredictor = ParallelSeedPredictor
-        sequentialRoiPredictor = SequentialRoiPredictor(this)
-        sequentialSeedPredictor = SequentialSeedPredictor(this)
+        sequentialRoiPredictor = SequentialRoiPredictor
+        sequentialSeedPredictor = SequentialSeedPredictor
 
         parallelFuzzySystem = ParallelFuzzySystem()
         sequentialFuzzySystem = SerialFuzzySystem()
@@ -390,7 +390,7 @@ class FuzzyAndResultScreen : BaseActivity() {
 
                     val activityContext = this@FuzzyAndResultScreen
 
-                    CoroutineScope(Dispatchers.Default).launch {
+                    CoroutineScope(Dispatchers.IO).launch {
                         try {
                             val fullSequence = ResultsDataHolder.fullMriSequence
                             Log.d("Recalculate", "FullSequence loaded, images count: ${fullSequence?.images?.size}")
@@ -400,8 +400,8 @@ class FuzzyAndResultScreen : BaseActivity() {
                                 throw IllegalStateException("Full MRI sequence not available, please reload images.")
                             }
 
-                            var startTime: Long = 0
-                            var elapsed: Long = 0
+                            var startTime: Long
+                            var elapsed: Long
                             sliceIndex = 0
 
                             fun filterImagesAndRois(
@@ -465,13 +465,14 @@ class FuzzyAndResultScreen : BaseActivity() {
                             } else if (selectedMode == "Serial") {
                                 startTime = System.currentTimeMillis()
                                 Log.d("Recalculate", "Starting Serial ROI prediction")
-
                                 val roiListSerial = sequentialRoiPredictor.predictRoi(
                                     fullSequence,
                                     useGpuDelegate = true,
                                     useAndroidNN = true,
                                     numThreads = 1
                                 )
+                                Log.d("ROI", "${System.currentTimeMillis() - startTime}")
+                                val ck1 = System.currentTimeMillis()
 
                                 Log.d("Recalculate", "Serial ROI prediction done, count: ${roiListSerial.size}")
 
@@ -484,6 +485,9 @@ class FuzzyAndResultScreen : BaseActivity() {
                                     useAndroidNN = true,
                                     numThreads = 1
                                 ).toList()
+                                Log.d("Seed", "${System.currentTimeMillis() - ck1}")
+                                val ck2 = System.currentTimeMillis()
+
 
                                 Log.d("Recalculate", "Serial seed prediction done, count: ${seedListSerial.size}")
 
@@ -493,6 +497,7 @@ class FuzzyAndResultScreen : BaseActivity() {
                                     seedListSerial,
                                     currentAlphaCutValue
                                 )
+                                Log.d("Fuzzy", "${System.currentTimeMillis() - ck2}")
                                 Log.d("Recalculate", "Serial volume estimation done, volume: ${cancerVolume.volume}")
 
                                 tumorMriSequence = filteredMriSequence

@@ -16,13 +16,13 @@ import java.nio.ByteOrder
 import kotlin.math.max
 import kotlin.math.min
 
-class SequentialRoiPredictor : IRoiPredictor {
+object SequentialRoiPredictor : IRoiPredictor {
     private lateinit var tflite: Interpreter
-    private val assetManager: AssetManager
+    private lateinit var assetManager: AssetManager
     private val inputSize = 512 // Model expects 512x512 input
     private val outputShape = intArrayOf(1, 5, 5376) // Based on Python output shape
 
-    constructor(context: Context) {
+    fun initialize(context: Context) {
         assetManager = context.assets
     }
 

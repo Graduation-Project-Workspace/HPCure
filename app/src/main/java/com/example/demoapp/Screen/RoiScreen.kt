@@ -81,7 +81,7 @@ class RoiScreen : AppCompatActivity() {
         setContentView(R.layout.shared_roi_seed_screen)
 
         parallelRoiPredictor = ParallelRoiPredictor
-        sequentialRoiPredictor = SequentialRoiPredictor(context = context)
+        sequentialRoiPredictor = SequentialRoiPredictor
         roiPredictor = parallelRoiPredictor
 
         if (FileManager.getAllFiles().isEmpty()) {
@@ -238,7 +238,8 @@ class RoiScreen : AppCompatActivity() {
                 try {
                     roiList = roiPredictor.predictRoi(
                         mriSequence = originalMriSequence,
-                        useGpuDelegate = isGPUEnabled
+                        useGpuDelegate = isGPUEnabled,
+                        numThreads = 1
                     )
                 } catch (e: Exception) {
                     Log.e("RoiScreen", "Error during ROI prediction: ${e.message}")
