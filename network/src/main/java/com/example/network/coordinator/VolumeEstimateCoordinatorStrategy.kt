@@ -95,8 +95,8 @@ class VolumeEstimateCoordinatorStrategy(
         }?.plus(1) ?: 0
         
         // Pre-allocate lists with the correct size
-        val aggregatedRois = mutableListOf<ROI>()
-        val aggregatedSeedPoints = mutableListOf<SeedPoint>()
+        val aggregatedRois = MutableList(totalSize) { ROI(0, 0, 0, 0) }
+        val aggregatedSeedPoints = MutableList(totalSize) { SeedPoint.newBuilder().setX(0).setY(0).build() }
         val workerInfo = mutableMapOf<String, RowIndices>()
         val friendlyNames = mutableMapOf<String, String>()
 
@@ -167,6 +167,8 @@ class VolumeEstimateCoordinatorStrategy(
                             .setYMin(roi.yMin)
                             .setXMax(roi.xMax)
                             .setYMax(roi.yMax)
+                            .setScore(roi.score)
+                            .setSliceIndex(roi.sliceIndex)
                             .build()
                     })
                     .addAllSeedPoints(aggregatedSeedPoints)
@@ -279,7 +281,9 @@ class VolumeEstimateCoordinatorStrategy(
                 xMin = roi.xMin,
                 yMin = roi.yMin,
                 xMax = roi.xMax,
-                yMax = roi.yMax
+                yMax = roi.yMax,
+                score = roi.score,
+                sliceIndex = roi.sliceIndex
             )
         }
         val seedPoints = aggregatedResponse.volumeEstimateResponse.seedPointsList.map { seedPoint ->

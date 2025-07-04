@@ -48,7 +48,8 @@ class VolumeEstimateComputationStrategy(
                     // Get ROI prediction using the MRISequence overload
                     val roiList = roiPredictor.predictRoi(mriSequence, true)
                     val roi = roiList.firstOrNull() ?: ROI(0, 0, slice.width, slice.height)
-                    
+                    roi.sliceIndex = sliceIdx
+
                     // Only process if ROI score > 0.3
                     if (roi.score > 0.3) {
                         val seedPointArray = seedPredictor.predictSeed(mriSequence, listOf(roi), true)
