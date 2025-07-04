@@ -463,17 +463,13 @@ class FuzzyAndResultScreen : BaseActivity() {
                                 GpuDelegateHelper.closeAllDelegates()
 
                             } else if (selectedMode == "Serial") {
-                                roiPredictor.close()
-                                seedPredictor.close()
-                                GpuDelegateHelper.closeAllDelegates()
-                                System.gc()
                                 startTime = System.currentTimeMillis()
                                 Log.d("Recalculate", "Starting Serial ROI prediction")
 
                                 val roiListSerial = sequentialRoiPredictor.predictRoi(
                                     fullSequence,
-                                    useGpuDelegate = false,
-                                    useAndroidNN = false,
+                                    useGpuDelegate = true,
+                                    useAndroidNN = true,
                                     numThreads = 1
                                 )
 
@@ -484,8 +480,8 @@ class FuzzyAndResultScreen : BaseActivity() {
                                 val seedListSerial = sequentialSeedPredictor.predictSeed(
                                     filteredMriSequence,
                                     filteredRois,
-                                    useGpuDelegate = false,
-                                    useAndroidNN = false,
+                                    useGpuDelegate = true,
+                                    useAndroidNN = true,
                                     numThreads = 1
                                 ).toList()
 
