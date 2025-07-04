@@ -689,6 +689,7 @@ class FuzzyAndResultScreen : BaseActivity() {
                             hideLoadingState(loadingOverlay, fuzzyCalculateButton)
                             fuzzyCalculateButton.isEnabled = true
                             fuzzyShowResultsButton.isEnabled = true
+                            resultsTumorVolume.text = "Tumor Volume: ${cancerVolume.volume} mm³"
                             updateShowResultsButtonStyle(fuzzyShowResultsButton, true)
                             fuzzyCalculateButton.text = "Re-calculate Volume"
                             fuzzyTimeText.text = "${selectedMode} Time: ${elapsed}ms"
