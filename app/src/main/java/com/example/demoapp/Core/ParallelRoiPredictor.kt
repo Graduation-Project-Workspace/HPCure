@@ -23,7 +23,7 @@ object ParallelRoiPredictor : IRoiPredictor {
     private val modelName = "breast_roi_model.tflite"
     // Constants
 
-    const val MAX_PARALLEL_REQUESTS = 2  // Optimal for most devices
+    const val MAX_PARALLEL_REQUESTS = 4  // Optimal for most devices
     const val MODEL_INPUT_SIZE = 512
 
     // Shared model state (loaded once)
