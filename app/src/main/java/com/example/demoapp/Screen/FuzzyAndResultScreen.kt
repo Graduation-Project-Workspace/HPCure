@@ -25,12 +25,10 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.example.demoapp.Core.*
 import com.example.demoapp.R
-import com.example.demoapp.Utils.FileManager
 import com.example.demoapp.Utils.GpuDelegateHelper
 import com.example.demoapp.Utils.ResultsDataHolder
 import com.example.demoapp.Utils.ResultsDataHolder.reportEntries
 import com.example.domain.interfaces.tumor.IFuzzySystem
-import com.example.domain.model.CancerVolume
 import com.example.domain.model.MRISequence
 import com.example.domain.model.ROI
 import kotlinx.coroutines.CoroutineScope
@@ -46,12 +44,6 @@ class FuzzyAndResultScreen : BaseActivity() {
     private var currentAlphaCutValue: Float = 50.00f
     private var roiTimeTaken: Long = 0
     private var seedTimeTaken: Long = 0
-    private lateinit var cancerVolume: CancerVolume
-    private lateinit var originalMriSequence: MRISequence
-    private lateinit var tumorMriSequence: MRISequence
-    private var roiList: List<ROI> = emptyList()
-    private var tumorRoiList: List<ROI> = emptyList()
-    private var seedList: Array<Pair<Int, Int>> = emptyArray()
     private lateinit var parallelFuzzySystem: ParallelFuzzySystem
     private lateinit var sequentialFuzzySystem: SerialFuzzySystem
     private var fuzzySystem: IFuzzySystem? = null
@@ -81,44 +73,16 @@ class FuzzyAndResultScreen : BaseActivity() {
         roiTimeTaken = intent.getLongExtra("roi_time_taken", 0)
         seedTimeTaken = intent.getLongExtra("seed_time_taken", 0)
 
-        @Suppress("UNCHECKED_CAST")
-        intent.getSerializableExtra("roi_list")?.let { extra ->
-            val incomingRoiList = extra as? List<ROI>
-            if (incomingRoiList != null) {
-                roiList = incomingRoiList
-            }
-        }
-
-        @Suppress("UNCHECKED_CAST")
-        intent.getSerializableExtra("seed_list")?.let { extra ->
-            val incomingSeedList = extra as? Array<Pair<Int, Int>>
-            if (incomingSeedList != null) {
-                seedList = incomingSeedList
-            }
-        }
-
         // Check if we have the full MRI sequence in ResultsDataHolder
         val fullMriSeq = ResultsDataHolder.fullMriSequence
         if (fullMriSeq == null || fullMriSeq.images.isEmpty()) {
-            Log.w("FuzzyAndResultScreen", "fullMriSequence is null or empty, attempting to reload from disk")
-            val bitmaps = FileManager.getAllFiles().mapNotNull {
-                FileManager.getProcessedImage(this, it)
-            }
-            if (bitmaps.isNotEmpty()) {
-                ResultsDataHolder.fullMriSequence = MRISequence(
-                    images = bitmaps.toMutableList(),
-                    metadata = FileManager.getDicomMetadata()
-                )
-            } else {
-                Toast.makeText(this, "No images found. Returning to upload screen.", Toast.LENGTH_LONG).show()
-                startActivity(Intent(this, UploadScreen::class.java).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                })
-                finish()
-                return
-            }
+            Toast.makeText(this, "No images found. Returning to upload screen.", Toast.LENGTH_LONG).show()
+            startActivity(Intent(this, UploadScreen::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            })
+            finish()
+            return
         }
-
 
         // Initialize predictors after context is available
         roiPredictor = ParallelRoiPredictor
@@ -176,8 +140,8 @@ class FuzzyAndResultScreen : BaseActivity() {
     private fun highlightCancerArea(bitmap: Bitmap, sliceIndex: Int): Bitmap {
         val mutableBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true)
 
-        if (sliceIndex < cancerVolume.affinityMatrix.size) {
-            val affinityMatrix = cancerVolume.affinityMatrix[sliceIndex]
+        if (sliceIndex < ResultsDataHolder.cancerVolume.affinityMatrix.size) {
+            val affinityMatrix = ResultsDataHolder.cancerVolume.affinityMatrix[sliceIndex]
             for (y in 0 until mutableBitmap.height) {
                 for (x in 0 until mutableBitmap.width) {
                     if (y < affinityMatrix.size && x < affinityMatrix[y].size) {
@@ -244,14 +208,14 @@ class FuzzyAndResultScreen : BaseActivity() {
     }
 
     fun updateImageCount(fuzzyImageCount: TextView, resultsImageCount: TextView) {
-        val countText = "${sliceIndex + 1}/${tumorMriSequence.images.size}"
+        val countText = "${sliceIndex + 1}/${ResultsDataHolder.tumorMriSequence!!.images.size}"
         fuzzyImageCount.text = countText
         resultsImageCount.text = countText
     }
 
     fun updateNavigationButtons(fuzzyPrevImage: ImageButton, fuzzyNextImage: ImageButton, resultsPrevImage: ImageButton, resultsNextImage: ImageButton) {
         val currentIndex = sliceIndex + 1
-        val totalFiles = tumorMriSequence.images.size
+        val totalFiles = ResultsDataHolder.tumorMriSequence!!.images.size
 
         // Update fuzzy navigation
         fuzzyPrevImage.visibility = if (currentIndex > 1) View.VISIBLE else View.INVISIBLE
@@ -264,14 +228,19 @@ class FuzzyAndResultScreen : BaseActivity() {
 
     fun loadCurrentImage(fuzzyMriImage: ImageView, fuzzyPrevImage: ImageButton, fuzzyNextImage: ImageButton, resultsPrevImage: ImageButton, resultsNextImage: ImageButton) {
         val displayBitmap = when {
-            sliceIndex < tumorRoiList.size && sliceIndex < seedList.size -> {
-                drawSeedPointInsideNormalizedRoi(tumorMriSequence.images[sliceIndex], tumorRoiList[sliceIndex], seedList[sliceIndex])
+            sliceIndex < ResultsDataHolder.tumorRoiList.size && sliceIndex < ResultsDataHolder.seedList.size -> {
+                drawSeedPointInsideNormalizedRoi(
+                    ResultsDataHolder.tumorMriSequence!!.images[sliceIndex],
+                    ResultsDataHolder.tumorRoiList[sliceIndex],
+                    ResultsDataHolder.seedList[sliceIndex])
             }
-            sliceIndex < tumorRoiList.size -> {
-                drawNormalizedRoiOnly(tumorMriSequence.images[sliceIndex], tumorRoiList[sliceIndex])
+            sliceIndex < ResultsDataHolder.tumorRoiList.size -> {
+                drawNormalizedRoiOnly(
+                    ResultsDataHolder.tumorMriSequence!!.images[sliceIndex],
+                    ResultsDataHolder.tumorRoiList[sliceIndex])
             }
             else -> {
-                tumorMriSequence.images[sliceIndex]
+                ResultsDataHolder.tumorMriSequence!!.images[sliceIndex]
             }
         }
         fuzzyMriImage.setImageBitmap(displayBitmap)
@@ -279,8 +248,9 @@ class FuzzyAndResultScreen : BaseActivity() {
     }
 
     fun loadCurrentResultsImage(resultsMriImage: ImageView) {
-        if (::cancerVolume.isInitialized) {
-            val displayBitmap = highlightCancerArea(tumorMriSequence.images[sliceIndex], sliceIndex)
+        if (ResultsDataHolder.cancerVolume.affinityMatrix.isNotEmpty()
+            && sliceIndex < ResultsDataHolder.cancerVolume.affinityMatrix.size) {
+            val displayBitmap = highlightCancerArea(ResultsDataHolder.tumorMriSequence!!.images[sliceIndex], sliceIndex)
             resultsMriImage.setImageBitmap(displayBitmap)
         }
     }
@@ -445,17 +415,17 @@ class FuzzyAndResultScreen : BaseActivity() {
 
                                 Log.d("Recalculate", "Parallel seed prediction done, count: ${seedListParallel.size}")
 
-                                cancerVolume = parallelFuzzySystem.estimateVolume(
+                                ResultsDataHolder.cancerVolume = parallelFuzzySystem.estimateVolume(
                                     filteredMriSequence,
                                     filteredRois,
                                     seedListParallel,
                                     currentAlphaCutValue
                                 )
-                                Log.d("Recalculate", "Parallel volume estimation done, volume: ${cancerVolume.volume}")
+                                Log.d("Recalculate", "Parallel volume estimation done, volume: ${ResultsDataHolder.cancerVolume.volume}")
 
-                                tumorMriSequence = filteredMriSequence
-                                tumorRoiList = filteredRois
-                                seedList = seedListParallel.toTypedArray()
+                                ResultsDataHolder.tumorMriSequence = filteredMriSequence
+                                ResultsDataHolder.tumorRoiList = filteredRois
+                                ResultsDataHolder.seedList = seedListParallel.toTypedArray()
 
                                 elapsed = System.currentTimeMillis() - startTime
                                 roiPredictor.close()
@@ -491,18 +461,18 @@ class FuzzyAndResultScreen : BaseActivity() {
 
                                 Log.d("Recalculate", "Serial seed prediction done, count: ${seedListSerial.size}")
 
-                                cancerVolume = sequentialFuzzySystem.estimateVolume(
+                                ResultsDataHolder.cancerVolume = sequentialFuzzySystem.estimateVolume(
                                     filteredMriSequence,
                                     filteredRois,
                                     seedListSerial,
                                     currentAlphaCutValue
                                 )
                                 Log.d("Fuzzy", "${System.currentTimeMillis() - ck2}")
-                                Log.d("Recalculate", "Serial volume estimation done, volume: ${cancerVolume.volume}")
+                                Log.d("Recalculate", "Serial volume estimation done, volume: ${ResultsDataHolder.cancerVolume.volume}")
 
-                                tumorMriSequence = filteredMriSequence
-                                tumorRoiList = filteredRois
-                                seedList = seedListSerial.toTypedArray()
+                                ResultsDataHolder.tumorMriSequence = filteredMriSequence
+                                ResultsDataHolder.tumorRoiList = filteredRois
+                                ResultsDataHolder.seedList = seedListSerial.toTypedArray()
 
                                 elapsed = System.currentTimeMillis() - startTime
 
@@ -524,7 +494,7 @@ class FuzzyAndResultScreen : BaseActivity() {
                                 Log.d("Recalculate", "GRPC volume estimation done, volume: ${cancerVolume.volume}")
 
                                 // Use the filtered data from gRPC result for display
-                                tumorMriSequence = filteredMriSeq
+                                ResultsDataHolder.tumorMriSequence = filteredMriSeq
 
                                 elapsed = System.currentTimeMillis() - startTime
 
@@ -533,14 +503,14 @@ class FuzzyAndResultScreen : BaseActivity() {
                                 throw IllegalStateException("Unknown mode: $selectedMode")
                             }
 
-                            Log.d("Recalculate", "Completed recalculation in mode: $selectedMode, Images: ${tumorMriSequence.images.size}, Time: ${elapsed}ms")
+                            Log.d("Recalculate", "Completed recalculation in mode: $selectedMode, Images: ${ResultsDataHolder.tumorMriSequence!!.images.size}, Time: ${elapsed}ms")
 
                             withContext(Dispatchers.Main) {
                                 hideLoadingState(loadingOverlay, fuzzyCalculateButton)
                                 fuzzyCalculateButton.isEnabled = true
                                 resultsRecalculateButton.isEnabled = true
 
-                                resultsTumorVolume.text = "Tumor Volume: ${cancerVolume.volume} mm³"
+                                resultsTumorVolume.text = "Tumor Volume: ${ResultsDataHolder.cancerVolume.volume} mm³"
                                 resultsPatientName.text = "$selectedMode Computation Time: ${elapsed}ms"
 
                                 ResultsDataHolder.setWholeProcessTime(selectedMode, elapsed)
@@ -568,7 +538,7 @@ class FuzzyAndResultScreen : BaseActivity() {
 
 
                 fun navigateImage(direction: Int) {
-                    val totalSlices = tumorMriSequence.images.size
+                    val totalSlices = ResultsDataHolder.tumorMriSequence!!.images.size
                     val newIndex = (sliceIndex + direction).coerceIn(0, totalSlices - 1)
                     if (newIndex != sliceIndex) {
                         sliceIndex = newIndex
@@ -670,7 +640,7 @@ class FuzzyAndResultScreen : BaseActivity() {
 
                 // Set up calculate button
                 fuzzyCalculateButton.setOnClickListener {
-                    if (roiList.isEmpty() || seedList.isEmpty()) {
+                    if (ResultsDataHolder.fullRoiList.isEmpty() || ResultsDataHolder.seedList.isEmpty()) {
                         Toast.makeText(ctx, "No ROI or Seed data available!", Toast.LENGTH_LONG).show()
                         return@setOnClickListener
                     }
@@ -683,13 +653,17 @@ class FuzzyAndResultScreen : BaseActivity() {
                     val startTime = System.currentTimeMillis()
                     CoroutineScope(Dispatchers.Default).launch {
                         val alphaCut = currentAlphaCutValue
-                        cancerVolume = fuzzySystem!!.estimateVolume(tumorMriSequence, tumorRoiList, seedList.toList(), alphaCut)
+                        ResultsDataHolder.cancerVolume = fuzzySystem!!.estimateVolume(
+                            ResultsDataHolder.tumorMriSequence!!,
+                            ResultsDataHolder.tumorRoiList,
+                            ResultsDataHolder.seedList.toList(), alphaCut)
+
                         val elapsed = System.currentTimeMillis() - startTime
                         withContext(Dispatchers.Main) {
                             hideLoadingState(loadingOverlay, fuzzyCalculateButton)
                             fuzzyCalculateButton.isEnabled = true
                             fuzzyShowResultsButton.isEnabled = true
-                            resultsTumorVolume.text = "Tumor Volume: ${cancerVolume.volume} mm³"
+                            resultsTumorVolume.text = "Tumor Volume: ${ResultsDataHolder.cancerVolume.volume} mm³"
                             updateShowResultsButtonStyle(fuzzyShowResultsButton, true)
                             fuzzyCalculateButton.text = "Re-calculate Volume"
                             fuzzyTimeText.text = "${selectedMode} Time: ${elapsed}ms"
@@ -722,29 +696,12 @@ class FuzzyAndResultScreen : BaseActivity() {
 
                 showLoadingState()
                 CoroutineScope(Dispatchers.IO).launch {
-                    val bitmaps = FileManager.getAllFiles().mapNotNull {
-                        FileManager.getProcessedImage(this@FuzzyAndResultScreen, it)
-                    }
-                    val mriSequence = MRISequence(
-                        images = bitmaps,
-                        metadata = FileManager.getDicomMetadata()
-                    )
-                    tumorMriSequence = MRISequence(
-                        images = emptyList(),
-                        metadata = FileManager.getDicomMetadata()
-                    )
-
-                    for ((index, roi) in roiList.withIndex()) {
-                        if (roi.score > 0.3) {
-                            tumorMriSequence.images += mriSequence.images[index]
-                            tumorRoiList += roi
-                        }
-                    }
                     withContext(Dispatchers.Main) {
                         // Initial setup
                         hideLoadingState()
                         setMode("Parallel")
-                        if (tumorMriSequence.images.isNotEmpty()) {
+                        if (ResultsDataHolder.tumorMriSequence != null
+                            && ResultsDataHolder.tumorMriSequence!!.images.isNotEmpty()) {
                             loadCurrentImage(fuzzyMriImage, fuzzyPrevImage, fuzzyNextImage, resultsPrevImage, resultsNextImage)
                             updateImageCount(fuzzyImageCount, resultsImageCount)
                         } else {

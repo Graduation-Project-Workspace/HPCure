@@ -19,6 +19,8 @@ import com.example.demoapp.Core.SequentialRoiPredictor
 import com.example.demoapp.Core.SequentialSeedPredictor
 import com.example.demoapp.R
 import com.example.demoapp.Utils.FileManager
+import com.example.demoapp.Utils.ResultsDataHolder
+import com.example.domain.model.MRISequence
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -100,8 +102,8 @@ class UploadScreen : AppCompatActivity() {
                         val bitmaps = FileManager.getAllFiles().mapNotNull { file ->
                             FileManager.getProcessedImage(this@UploadScreen, file)
                         }
-                        val mriSeq = com.example.domain.model.MRISequence(images = bitmaps, metadata = FileManager.getDicomMetadata())
-                        com.example.demoapp.Utils.ResultsDataHolder.fullMriSequence = mriSeq
+                        ResultsDataHolder.fullMriSequence = MRISequence(images = bitmaps, metadata = FileManager.getDicomMetadata())
+                        ResultsDataHolder.tumorMriSequence = MRISequence(images = bitmaps, metadata = FileManager.getDicomMetadata())
                         result && fileCount > 0
                     } catch (e: Exception) {
                         Log.e("UploadScreen", "Error in loadDirectory", e)

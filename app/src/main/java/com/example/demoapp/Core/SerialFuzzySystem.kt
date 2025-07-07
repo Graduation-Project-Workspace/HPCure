@@ -48,7 +48,6 @@ class SerialFuzzySystem : IFuzzySystem {
 
         return@runBlocking CancerVolume(
             volume = totalVolume,
-            sequence = mriSequence,
             affinityMatrix = affinityMatrix
         )
     }

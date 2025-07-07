@@ -22,11 +22,9 @@ import androidx.core.content.ContextCompat
 import com.example.demoapp.Core.ParallelRoiPredictor
 import com.example.demoapp.Core.SequentialRoiPredictor
 import com.example.demoapp.R
-import com.example.demoapp.Utils.FileManager
 import com.example.demoapp.Utils.GpuDelegateHelper
 import com.example.demoapp.Utils.ResultsDataHolder
 import com.example.domain.interfaces.tumor.IRoiPredictor
-import com.example.domain.model.MRISequence
 import com.example.domain.model.ROI
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -53,13 +51,8 @@ class RoiScreen : AppCompatActivity() {
     private lateinit var parallelRoiPredictor: ParallelRoiPredictor
     private lateinit var sequentialRoiPredictor: SequentialRoiPredictor
 
-    private lateinit var originalMriSequence: MRISequence
-    private lateinit var tumorMriSequence: MRISequence
-
     private var selectedMode: String = "Parallel"
 
-    private var roiList: List<ROI> = emptyList()
-    private var tumorRoiList: List<ROI> = emptyList()
     private var sliceIndex = 0
     private val context = this
     private var isGPUEnabled = true
@@ -84,7 +77,7 @@ class RoiScreen : AppCompatActivity() {
         sequentialRoiPredictor = SequentialRoiPredictor
         roiPredictor = parallelRoiPredictor
 
-        if (FileManager.getAllFiles().isEmpty()) {
+        if (ResultsDataHolder.fullMriSequence == null || ResultsDataHolder.fullMriSequence!!.images.isEmpty()) {
             Toast.makeText(this, "No images loaded! Returning to upload screen.", Toast.LENGTH_LONG).show()
             val intent = Intent(this, UploadScreen::class.java)
             intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
@@ -107,7 +100,6 @@ class RoiScreen : AppCompatActivity() {
         updateNextButtonStyle(nextButton, false)
         nextButton.setOnClickListener {
             val intent = Intent(this, SeedScreen::class.java)
-            intent.putExtra("roi_list", ArrayList(roiList))
             intent.putExtra("roi_time_taken", ResultsDataHolder.reportEntries.findLast { it.step == "ROI" }?.parallelTime ?: 0)
             intent.putExtra("roi_mode", selectedMode)
             intent.putExtra("shouldCleanup", false)
@@ -159,22 +151,11 @@ class RoiScreen : AppCompatActivity() {
 
         showLoadingState()
         CoroutineScope(Dispatchers.IO).launch {
-            val bitmaps = FileManager.getAllFiles().mapNotNull { file ->
-                FileManager.getProcessedImage(this@RoiScreen, file)
-            }
-            originalMriSequence = MRISequence(images = bitmaps, metadata = FileManager.getDicomMetadata())
-            tumorMriSequence = MRISequence(images = bitmaps, metadata = FileManager.getDicomMetadata())
             withContext(Dispatchers.Main) {
                 hideLoadingState()
-
-                if (FileManager.getAllFiles().isNotEmpty()) {
-                    setupImageNavigation()
-                    loadCurrentImage()
-                    updateImageCount()
-                } else {
-                    Toast.makeText(this@RoiScreen, "No images available to display", Toast.LENGTH_SHORT).show()
-                    predictButton.isEnabled = false
-                }
+                setupImageNavigation()
+                loadCurrentImage()
+                updateImageCount()
             }
         }
 
@@ -236,8 +217,8 @@ class RoiScreen : AppCompatActivity() {
             CoroutineScope(Dispatchers.IO).launch {
                 val startTime = System.currentTimeMillis()
                 try {
-                    roiList = roiPredictor.predictRoi(
-                        mriSequence = originalMriSequence,
+                    ResultsDataHolder.fullRoiList = roiPredictor.predictRoi(
+                        mriSequence = ResultsDataHolder.fullMriSequence!!,
                         useGpuDelegate = isGPUEnabled,
                         numThreads = 1
                     )
@@ -249,11 +230,12 @@ class RoiScreen : AppCompatActivity() {
                         return@withContext
                     }
                 }
-                tumorMriSequence.images = emptyList()
-                for ((index, roi) in roiList.withIndex()) {
+                ResultsDataHolder.tumorMriSequence!!.images = emptyList()
+                ResultsDataHolder.tumorRoiList = emptyList()
+                for ((index, roi) in ResultsDataHolder.fullRoiList.withIndex()) {
                     if (roi.score > 0.3) {
-                        tumorMriSequence.images+= originalMriSequence.images[index]
-                        tumorRoiList+= roi
+                        ResultsDataHolder.tumorMriSequence!!.images+= ResultsDataHolder.fullMriSequence!!.images[index]
+                        ResultsDataHolder.tumorRoiList+= roi
                     }
                 }
 
@@ -418,9 +400,9 @@ class RoiScreen : AppCompatActivity() {
     }
 
     private fun loadCurrentImage() {
-        val displayBitmap = roiList.getOrNull(sliceIndex)?.let {
-            drawRoiRectangleOnBitmap(tumorMriSequence.images[sliceIndex], tumorRoiList[sliceIndex])
-        } ?: tumorMriSequence.images[sliceIndex]
+        val displayBitmap = ResultsDataHolder.tumorRoiList.getOrNull(sliceIndex)?.let {
+            drawRoiRectangleOnBitmap(ResultsDataHolder.tumorMriSequence!!.images[sliceIndex], ResultsDataHolder.tumorRoiList[sliceIndex])
+        } ?: ResultsDataHolder.tumorMriSequence!!.images[sliceIndex]
 
         mriImage.apply {
             setImageBitmap(displayBitmap)
@@ -457,11 +439,11 @@ class RoiScreen : AppCompatActivity() {
     }
 
     private fun updateImageCount() {
-        imageCount.text = "${sliceIndex + 1}/${tumorMriSequence.images.size}"
+        imageCount.text = "${sliceIndex + 1}/${ResultsDataHolder.tumorMriSequence!!.images.size}"
     }
 
     private fun updateNavigationButtons() {
         prevImage.visibility = if (sliceIndex > 0) ImageButton.VISIBLE else ImageButton.INVISIBLE
-        nextImage.visibility = if (sliceIndex < tumorMriSequence.images.size - 1) ImageButton.VISIBLE else ImageButton.INVISIBLE
+        nextImage.visibility = if (sliceIndex < ResultsDataHolder.tumorMriSequence!!.images.size - 1) ImageButton.VISIBLE else ImageButton.INVISIBLE
     }
 }

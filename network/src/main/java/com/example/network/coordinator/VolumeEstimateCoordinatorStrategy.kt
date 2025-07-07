@@ -1,17 +1,20 @@
 package com.example.network.coordinator
 
+import android.util.Log
 import com.example.domain.interfaces.network.ICoordinatorStrategy
+import com.example.domain.interfaces.network.INetworkService
 import com.example.domain.interfaces.network.WorkerResult
 import com.example.domain.model.MRISequence
 import com.example.domain.model.ROI
-import com.example.domain.interfaces.network.INetworkService
-import com.example.protos.*
-import kotlin.math.ceil
-import java.io.ByteArrayOutputStream
-import android.util.Log
 import com.example.network.ui.UiEventWorkStatus
 import com.example.network.util.WorkEventBus
-import kotlinx.coroutines.*
+import com.example.protos.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.runBlocking
+import java.io.ByteArrayOutputStream
+import kotlin.math.ceil
 
 class VolumeEstimateCoordinatorStrategy(
     private val networkService: INetworkService
@@ -95,7 +98,7 @@ class VolumeEstimateCoordinatorStrategy(
         }?.plus(1) ?: 0
         
         // Pre-allocate lists with the correct size
-        val aggregatedRois = MutableList(totalSize) { ROI(0, 0, 0, 0) }
+        val aggregatedRois = MutableList(totalSize) { ROI(0, 0, 0, 0, 0f, -1) }
         val aggregatedSeedPoints = MutableList(totalSize) { SeedPoint.newBuilder().setX(0).setY(0).build() }
         val workerInfo = mutableMapOf<String, RowIndices>()
         val friendlyNames = mutableMapOf<String, String>()

@@ -12,13 +12,14 @@ data class ReportEntry(
 )
 
 object ResultsDataHolder {
-    var mriSequence: MRISequence? = null
+    var tumorMriSequence: MRISequence? = null
     var fullMriSequence: MRISequence? = null
-    var cancerVolume: CancerVolume? = null
+    var cancerVolume = CancerVolume(0f, emptyArray())
     var alphaCut: Float = 50f
     var timeTaken: Long = 0
-    var roiList: List<ROI>? = null
-    var seedPoints: List<Pair<Int, Int>>? = null
+    var fullRoiList: List<ROI> = emptyList()
+    var tumorRoiList: List<ROI> = emptyList()
+    var seedList: Array<Pair<Int, Int>> = emptyArray()
     var wholeProcessParallelTime: Long? = null
     var wholeProcessSerialTime: Long? = null
     var wholeProcessGrpcTime: Long? = null

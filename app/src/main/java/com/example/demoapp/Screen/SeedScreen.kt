@@ -21,11 +21,9 @@ import androidx.core.content.ContextCompat
 import com.example.demoapp.Core.ParallelSeedPredictor
 import com.example.demoapp.Core.SequentialSeedPredictor
 import com.example.demoapp.R
-import com.example.demoapp.Utils.FileManager
 import com.example.demoapp.Utils.GpuDelegateHelper
 import com.example.demoapp.Utils.ResultsDataHolder
 import com.example.domain.interfaces.tumor.ISeedPredictor
-import com.example.domain.model.MRISequence
 import com.example.domain.model.ROI
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -52,14 +50,9 @@ class SeedScreen : AppCompatActivity() {
     private lateinit var parallelSeedPredictor: ParallelSeedPredictor
     private lateinit var sequentialSeedPredictor: SequentialSeedPredictor
 
-    private lateinit var originalMriSequence: MRISequence
-    private lateinit var tumorMriSequence: MRISequence
     private var selectedMode: String = "Parallel"
     private var roiTimeTaken: Long = 0
 
-    private var roiList: List<ROI> = emptyList()
-    private var tumorRoiList = emptyList<ROI>()
-    private var seedList: Array<Pair<Int, Int>> = emptyArray()
     private val context = this
     private var sliceIndex = 0
     private var isGPUEnabled = true
@@ -85,15 +78,8 @@ class SeedScreen : AppCompatActivity() {
         seedPredictor = parallelSeedPredictor
 
         roiTimeTaken = intent.getLongExtra("roi_time_taken", 0)
-        @Suppress("UNCHECKED_CAST")
-        intent.getSerializableExtra("roi_list")?.let { extra ->
-            val incomingRoiList = extra as? List<ROI>
-            if (incomingRoiList != null) {
-                roiList = incomingRoiList
-            }
-        }
 
-        if (FileManager.getAllFiles().isEmpty()) {
+        if (ResultsDataHolder.fullMriSequence == null || ResultsDataHolder.fullMriSequence!!.images.isEmpty()) {
             Toast.makeText(this, "No images loaded! Returning to upload screen.", Toast.LENGTH_LONG).show()
             val intent = Intent(this, UploadScreen::class.java)
             intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
@@ -125,8 +111,6 @@ class SeedScreen : AppCompatActivity() {
 
         nextButton.setOnClickListener {
             val intent = Intent(this, FuzzyAndResultScreen::class.java).apply {
-                putExtra("seed_list", seedList)
-                putExtra("roi_list", ArrayList(roiList))
                 putExtra("roi_time_taken", roiTimeTaken)
                 putExtra("seed_time_taken", ResultsDataHolder.reportEntries.findLast { it.step == "Seed" }?.parallelTime ?: 0)
                 putExtra("shouldCleanup", false)
@@ -177,29 +161,11 @@ class SeedScreen : AppCompatActivity() {
 
         showLoadingState()
         CoroutineScope(Dispatchers.IO).launch {
-            val bitmaps = FileManager.getAllFiles().mapNotNull { file ->
-                FileManager.getProcessedImage(this@SeedScreen, file)
-            }
-            originalMriSequence = MRISequence(images = bitmaps, metadata = FileManager.getDicomMetadata())
-            tumorMriSequence = MRISequence(images = emptyList(), metadata = FileManager.getDicomMetadata())
-
-            for ((index, roi) in roiList.withIndex()) {
-                if (roi.score > 0.3) {
-                    tumorMriSequence.images+= originalMriSequence.images[index]
-                    tumorRoiList+= roi
-                }
-            }
-
             withContext(Dispatchers.Main) {
                 hideLoadingState()
-                if (FileManager.getAllFiles().isNotEmpty()) {
-                    setupImageNavigation()
-                    loadCurrentImage()
-                    updateImageCount()
-                } else {
-                    Toast.makeText(this@SeedScreen, "No images available to display", Toast.LENGTH_SHORT).show()
-                    predictButton.isEnabled = false
-                }
+                setupImageNavigation()
+                loadCurrentImage()
+                updateImageCount()
             }
         }
 
@@ -257,7 +223,7 @@ class SeedScreen : AppCompatActivity() {
         val predictButton = findViewById<Button>(R.id.predict_button)
         val nextButton = findViewById<Button>(R.id.next_button)
         predictButton.setOnClickListener {
-            if (roiList.isEmpty()) {
+            if (ResultsDataHolder.fullRoiList.isEmpty()) {
                 Toast.makeText(this, "No ROI received! Please return to ROI screen.", Toast.LENGTH_LONG).show()
                 return@setOnClickListener
             }
@@ -267,9 +233,9 @@ class SeedScreen : AppCompatActivity() {
                 val startTime = System.currentTimeMillis()
 
                 try {
-                    seedList = seedPredictor.predictSeed(
-                        mriSeq = tumorMriSequence,
-                        roiList = tumorRoiList,
+                    ResultsDataHolder.seedList = seedPredictor.predictSeed(
+                        mriSeq = ResultsDataHolder.tumorMriSequence!!,
+                        roiList = ResultsDataHolder.tumorRoiList,
                         useGpuDelegate = isGPUEnabled,
                         numThreads = 1
                     )
@@ -286,6 +252,7 @@ class SeedScreen : AppCompatActivity() {
 
                 withContext(Dispatchers.Main) {
                     ResultsDataHolder.addOrUpdateReportEntry("Seed", mode, timeTaken)
+                    loadCurrentImage()
                     updateReportUI()
                     hideLoadingState()
                     hasPredicted = true
@@ -432,16 +399,18 @@ class SeedScreen : AppCompatActivity() {
     }
 
     private fun loadCurrentImage() {
-        val displayBitmap = if (roiList.size > sliceIndex && seedList.size > sliceIndex) {
+        val displayBitmap = if (ResultsDataHolder.tumorRoiList.size > sliceIndex && ResultsDataHolder.seedList.size > sliceIndex) {
             drawSeedPointInsideNormalizedRoi(
-                tumorMriSequence.images[sliceIndex],
-                tumorRoiList[sliceIndex],
-                seedList[sliceIndex]
+                ResultsDataHolder.tumorMriSequence!!.images[sliceIndex],
+                ResultsDataHolder.tumorRoiList[sliceIndex],
+                ResultsDataHolder.seedList[sliceIndex]
             )
-        } else if (roiList.size > sliceIndex) {
-            drawNormalizedRoiOnly(tumorMriSequence.images[sliceIndex], tumorRoiList[sliceIndex])
+        } else if (ResultsDataHolder.tumorRoiList.size > sliceIndex) {
+            drawNormalizedRoiOnly(
+                ResultsDataHolder.tumorMriSequence!!.images[sliceIndex],
+                ResultsDataHolder.tumorRoiList[sliceIndex])
         } else {
-            tumorMriSequence.images[sliceIndex]
+            ResultsDataHolder.tumorMriSequence!!.images[sliceIndex]
         }
 
         mriImage.apply {
@@ -478,7 +447,12 @@ class SeedScreen : AppCompatActivity() {
             style = Paint.Style.STROKE
             strokeWidth = 4f
         }
-        canvas.drawRect(roi.xMin.toFloat(), roi.yMin.toFloat(), roi.xMax.toFloat(), roi.yMax.toFloat(), roiPaint)
+        canvas.drawRect(
+            roi.xMin.toFloat(),
+            roi.yMin.toFloat(),
+            roi.xMax.toFloat(),
+            roi.yMax.toFloat(),
+            roiPaint)
 
         val seedPaint = Paint().apply {
             color = Color.YELLOW
@@ -503,11 +477,11 @@ class SeedScreen : AppCompatActivity() {
     }
 
     private fun updateImageCount() {
-        imageCount.text = "${sliceIndex + 1}/${tumorMriSequence.images.size}"
+        imageCount.text = "${sliceIndex + 1}/${ResultsDataHolder.tumorMriSequence!!.images.size}"
     }
 
     private fun updateNavigationButtons() {
         prevImage.visibility = if (sliceIndex > 0) ImageButton.VISIBLE else ImageButton.INVISIBLE
-        nextImage.visibility = if (sliceIndex < tumorMriSequence.images.size - 1) ImageButton.VISIBLE else ImageButton.INVISIBLE
+        nextImage.visibility = if (sliceIndex < ResultsDataHolder.tumorMriSequence!!.images.size - 1) ImageButton.VISIBLE else ImageButton.INVISIBLE
     }
 }
