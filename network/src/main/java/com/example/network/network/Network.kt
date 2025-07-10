@@ -47,6 +47,7 @@ class GrpcNetwork(
     private val workerPerformanceMetrics = mutableMapOf<String, Long>()
     private val addressToFriendlyName = mutableMapOf<String, String>()
     private var computationCallback: (() -> Unit)? = null
+    private var coordinator: Coordinator? = null
 
 
     /**
@@ -114,6 +115,7 @@ class GrpcNetwork(
             seedPredictor = seedPredictor,
             networkService = this
         )
+        this.coordinator = coordinator
         val workerAddress = "${getLocalIpAddress()}:$WORKER_PORT"
         coordinator.addWorker(workerAddress, friendlyName)
         logs.add("Coordinator: also registered self as worker $workerAddress ($friendlyName)")
@@ -322,6 +324,7 @@ class GrpcNetwork(
 
                     val response = stub.registerWorker(request)
                     val friendlyName = response.friendlyName
+                    val workerAddress = coordinatorAddress.replace(":$COORDINATOR_PORT", ":$WORKER_PORT")
 
                     // If we get here, the coordinator is alive
                     if (workerHealthStatus[coordinatorAddress] != true) {
@@ -332,19 +335,22 @@ class GrpcNetwork(
                                 online = true
                             )
                         )
+                        // Notify coordinator that worker is available
+                        coordinator?.markWorkerAvailable(workerAddress, friendlyName)
                     }
                 } catch (e: Exception) {
-                    if (workerHealthStatus[coordinatorAddress] != false) {
-                        workerHealthStatus[coordinatorAddress] = false
-                        // Find the friendly name from previous registration or use address as fallback
-                        val friendlyName = findFriendlyNameForAddress(coordinatorAddress)
-                        DeviceEventBus.post(
-                            UiEventDeviceStatus.WorkerStatusChanged(
-                                humanName = friendlyName,
-                                online = false
-                            )
+                    // If we fail to contact, mark as offline
+                    workerHealthStatus[coordinatorAddress] = false
+                    val workerAddress = coordinatorAddress.replace(":$COORDINATOR_PORT", ":$WORKER_PORT")
+                    val friendlyName = findFriendlyNameForAddress(coordinatorAddress)
+                    DeviceEventBus.post(
+                        UiEventDeviceStatus.WorkerStatusChanged(
+                            humanName = friendlyName,
+                            online = false
                         )
-                    }
+                    )
+                    // Notify coordinator that worker is unavailable
+                    coordinator?.markWorkerUnavailable(workerAddress)
                 } finally {
                     // Always shut down the channel
                     channel.shutdown()
@@ -356,6 +362,16 @@ class GrpcNetwork(
                 }
             } catch (e: Exception) {
                 workerHealthStatus[coordinatorAddress] = false
+                val workerAddress = coordinatorAddress.replace(":$COORDINATOR_PORT", ":$WORKER_PORT")
+                val friendlyName = findFriendlyNameForAddress(coordinatorAddress)
+                DeviceEventBus.post(
+                    UiEventDeviceStatus.WorkerStatusChanged(
+                        humanName = friendlyName,
+                        online = false
+                    )
+                )
+                // Notify coordinator that worker is unavailable
+                coordinator?.markWorkerUnavailable(workerAddress)
             }
         }
     }
@@ -637,15 +653,13 @@ class GrpcNetwork(
             // Get redistributed portions for this worker
             val redistributedPortions = sortedPortions.filter { !originalPortions.contains(it) }.sorted()
 
-            // Format the portions list for display
+            // Show both lists only if there are redistributed portions
             val portionStr = if (redistributedPortions.isNotEmpty()) {
-                // If there are redistributed portions, show both original and redistributed
-                val originalStr = originalPortions.joinToString(", ")
+                val originalStr = if (originalPortions.isNotEmpty()) originalPortions.joinToString(", ") else "-"
                 val redistributedStr = redistributedPortions.joinToString(", ")
                 "Original portions: [$originalStr], Redistributed portions: [$redistributedStr]"
             } else {
-                // If no redistributed portions, just show original ones
-                sortedPortions.joinToString(", ")
+                if (originalPortions.isNotEmpty()) originalPortions.joinToString(", ") else sortedPortions.joinToString(", ")
             }
 
             logs.add("Worker '$workerName' computed portions: [$portionStr]")

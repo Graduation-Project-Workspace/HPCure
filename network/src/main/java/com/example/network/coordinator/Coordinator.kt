@@ -124,6 +124,13 @@ class Coordinator(
         responseObserver: StreamObserver<AssignTaskResponse>
     ) {
         resetState()
+
+        // Atomically prune unavailable workers before distribution
+        synchronized(metricsLock) {
+            val unavailable = workers.filter { workerPerformance[it.first]?.isAvailable == false }
+            unavailable.forEach { workers.remove(it) }
+        }
+
         strategy.logInput(request, logs)
 
         if (workers.isEmpty()) {
@@ -180,6 +187,7 @@ class Coordinator(
             val computationTime = endTime - startTime
 
             if (result != null) {
+                logs.add("[DEBUG] Task succeeded for worker ${worker.second}")
                 resultsWithInfo.add(worker.first to WorkerResult(
                     response = result,
                     assignedRange = portions,
@@ -197,6 +205,7 @@ class Coordinator(
                     )
                 )
             } else {
+                logs.add("[DEBUG] Task failed for worker ${worker.second}, adding to failedTasks")
                 logs.add("Coordinator: Task failed for worker ${worker.second}, marking for redistribution")
                 failedTasks.add(portions to worker.first)
                 updateWorkerMetrics(worker.first, false, computationTime)
@@ -204,18 +213,17 @@ class Coordinator(
         }
 
         if (failedTasks.isNotEmpty()) {
-            logs.add("Coordinator: ${failedTasks.size} tasks failed during execution")
-            
-            val availableForRedistribution = availableWorkers.filter { worker ->
-                !failedTasks.any { it.second == worker.first }
-            }
-
-            if (availableForRedistribution.isNotEmpty()) {
-                logs.add("Coordinator: Redistributing failed tasks to: ${availableForRedistribution.map { it.second }}")
-                val redistributedResults = redistributeFailedTasks(failedTasks, availableForRedistribution, request)
-                resultsWithInfo.addAll(redistributedResults)
-            } else {
-                logs.add("Coordinator: No workers available for redistribution")
+            // Always try to redistribute to any remaining available workers except the failed one
+            val allAvailableWorkers = workers.toList() // snapshot of current available workers
+            failedTasks.forEach { (failedPortions, failedWorkerAddress) ->
+                val availableForRedistribution = allAvailableWorkers.filter { it.first != failedWorkerAddress }
+                if (availableForRedistribution.isNotEmpty()) {
+                    logs.add("[DEBUG] Attempting to redistribute failed portions $failedPortions from $failedWorkerAddress to: ${availableForRedistribution.map { it.second }}")
+                    val redistributedResults = redistributeFailedTasks(listOf(failedPortions to failedWorkerAddress), availableForRedistribution, request)
+                    resultsWithInfo.addAll(redistributedResults)
+                } else {
+                    logs.add("Coordinator: No available workers to redistribute tasks from worker $failedWorkerAddress")
+                }
             }
         }
 
@@ -284,7 +292,7 @@ class Coordinator(
             } else {
                 synchronized(metricsLock) {
                     if (workerPerformance[worker.first]?.isAvailable == false) {
-                        logs.add("Coordinator: Skipping task execution for unavailable worker ${worker.second}")
+                        logs.add("[DEBUG] Skipping task execution for unavailable worker ${worker.second}")
                         // Clean up the worker's resources
                         stubs.remove(worker.first)
                         workers.remove(worker)
@@ -295,7 +303,7 @@ class Coordinator(
                 }
             }
         } catch (e: Exception) {
-            logs.add("Coordinator: Task execution failed for ${worker.first}: ${e.message}")
+            logs.add("[DEBUG] Exception in executeTask for worker ${worker.first}: ${e.message}")
             // Clean up on error
             synchronized(metricsLock) {
                 stubs.remove(worker.first)
@@ -313,9 +321,8 @@ class Coordinator(
         return try {
             val response = stub.withDeadlineAfter(5, TimeUnit.SECONDS)
                 .assignTask(request)
-            
             if (response.volumeEstimateResponse.roisCount == 0) {
-                logs.add("Empty response from worker ${worker.second}")
+                logs.add("[DEBUG] Empty response from worker ${worker.second}, treating as failure")
                 updateWorkerMetrics(worker.first, false, 0)
                 // Clean up on empty response
                 synchronized(metricsLock) {
@@ -352,7 +359,7 @@ class Coordinator(
         request: AssignTaskRequest
     ): List<Pair<String, WorkerResult>> {
         val results = mutableListOf<Pair<String, WorkerResult>>()
-        
+        logs.add("Redistributing failed tasks to available workers ...")
         val tasksGroupedByWorker = failedTasks.groupBy { it.second }
         
         tasksGroupedByWorker.forEach { (failedWorkerAddress, tasksFromWorker) ->
@@ -421,13 +428,16 @@ class Coordinator(
                         )
                         )
                         updateWorkerMetrics(targetWorker.first, true, endTime - startTime)
-                        logs.add("Successfully redistributed portions [${portions.joinToString(", ")}] to ${targetWorker.second}")
-                        
+                        // Map failedWorkerAddress to friendly name for log and event
+                        val failedWorkerName = availableWorkers.find { it.first == failedWorkerAddress }?.second ?: failedWorkerAddress
+                        logs.add("Successfully redistributed portions [${portions.joinToString(", ")}] to ${targetWorker.second} (from failed worker $failedWorkerName)")
+                        // Post TaskCompleted with reassignedFrom as friendly name
                         WorkEventBus.post(
                             UiEventWorkStatus.TaskCompleted(
                                 humanName = targetWorker.second,
                                 portions = portions,
-                                computationTime = endTime - startTime
+                                computationTime = endTime - startTime,
+                                reassignedFrom = failedWorkerName
                             )
                         )
                     } else {
@@ -440,13 +450,42 @@ class Coordinator(
                 }
             }
         }
-
         return results
     }
 
     fun addWorker(address: String, friendlyName: String) {
         if (workers.add(address to friendlyName)) {
             logs.add("Coordinator: Pre-registered worker $address via broadcast")
+        }
+    }
+
+    // Add this method to mark a worker as unavailable
+    @Synchronized
+    fun markWorkerUnavailable(address: String) {
+        val workerInfo = workers.find { it.first == address }
+        if (workerInfo != null) {
+            workerPerformance[address]?.isAvailable = false
+            workers.remove(workerInfo)
+            stubs.remove(address)
+            logs.add("Coordinator: Worker $address marked as unavailable and removed due to offline status")
+            // Notify UI that this worker is now idle/offline
+            com.example.network.util.WorkEventBus.post(
+                com.example.network.ui.UiEventWorkStatus.TaskNotAssigned(
+                    humanName = workerInfo.second
+                )
+            )
+        }
+    }
+
+    // Add this method to mark a worker as available (re-add if not present)
+    fun markWorkerAvailable(address: String, friendlyName: String) {
+        synchronized(metricsLock) {
+            val workerInfo = workers.find { it.first == address }
+            if (workerInfo == null) {
+                workers.add(address to friendlyName)
+                logs.add("Coordinator: Worker $address ($friendlyName) marked as available and added back to workers list")
+            }
+            workerPerformance[address]?.isAvailable = true
         }
     }
 

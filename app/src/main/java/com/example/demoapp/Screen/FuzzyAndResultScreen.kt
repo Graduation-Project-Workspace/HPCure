@@ -495,6 +495,7 @@ class FuzzyAndResultScreen : BaseActivity() {
 
                                 // Use the filtered data from gRPC result for display
                                 ResultsDataHolder.tumorMriSequence = filteredMriSeq
+                                ResultsDataHolder.cancerVolume.volume = cancerVolume.volume
 
                                 elapsed = System.currentTimeMillis() - startTime
 
