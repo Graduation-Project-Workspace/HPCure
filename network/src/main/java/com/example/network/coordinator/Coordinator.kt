@@ -187,7 +187,6 @@ class Coordinator(
             val computationTime = endTime - startTime
 
             if (result != null) {
-                logs.add("[DEBUG] Task succeeded for worker ${worker.second}")
                 resultsWithInfo.add(worker.first to WorkerResult(
                     response = result,
                     assignedRange = portions,
@@ -205,7 +204,6 @@ class Coordinator(
                     )
                 )
             } else {
-                logs.add("[DEBUG] Task failed for worker ${worker.second}, adding to failedTasks")
                 logs.add("Coordinator: Task failed for worker ${worker.second}, marking for redistribution")
                 failedTasks.add(portions to worker.first)
                 updateWorkerMetrics(worker.first, false, computationTime)
@@ -213,17 +211,18 @@ class Coordinator(
         }
 
         if (failedTasks.isNotEmpty()) {
-            // Always try to redistribute to any remaining available workers except the failed one
-            val allAvailableWorkers = workers.toList() // snapshot of current available workers
-            failedTasks.forEach { (failedPortions, failedWorkerAddress) ->
-                val availableForRedistribution = allAvailableWorkers.filter { it.first != failedWorkerAddress }
-                if (availableForRedistribution.isNotEmpty()) {
-                    logs.add("[DEBUG] Attempting to redistribute failed portions $failedPortions from $failedWorkerAddress to: ${availableForRedistribution.map { it.second }}")
-                    val redistributedResults = redistributeFailedTasks(listOf(failedPortions to failedWorkerAddress), availableForRedistribution, request)
-                    resultsWithInfo.addAll(redistributedResults)
-                } else {
-                    logs.add("Coordinator: No available workers to redistribute tasks from worker $failedWorkerAddress")
-                }
+            logs.add("Coordinator: ${failedTasks.size} tasks failed during execution")
+            
+            val availableForRedistribution = availableWorkers.filter { worker ->
+                !failedTasks.any { it.second == worker.first }
+            }
+
+            if (availableForRedistribution.isNotEmpty()) {
+                logs.add("Coordinator: Redistributing failed tasks to: ${availableForRedistribution.map { it.second }}")
+                val redistributedResults = redistributeFailedTasks(failedTasks, availableForRedistribution, request)
+                resultsWithInfo.addAll(redistributedResults)
+            } else {
+                logs.add("Coordinator: No workers available for redistribution")
             }
         }
 
@@ -292,7 +291,7 @@ class Coordinator(
             } else {
                 synchronized(metricsLock) {
                     if (workerPerformance[worker.first]?.isAvailable == false) {
-                        logs.add("[DEBUG] Skipping task execution for unavailable worker ${worker.second}")
+                        logs.add("Coordinator: Skipping task execution for unavailable worker ${worker.second}")
                         // Clean up the worker's resources
                         stubs.remove(worker.first)
                         workers.remove(worker)
@@ -303,7 +302,7 @@ class Coordinator(
                 }
             }
         } catch (e: Exception) {
-            logs.add("[DEBUG] Exception in executeTask for worker ${worker.first}: ${e.message}")
+            logs.add("Coordinator: Task execution failed for ${worker.first}: ${e.message}")
             // Clean up on error
             synchronized(metricsLock) {
                 stubs.remove(worker.first)
@@ -321,8 +320,9 @@ class Coordinator(
         return try {
             val response = stub.withDeadlineAfter(5, TimeUnit.SECONDS)
                 .assignTask(request)
+            
             if (response.volumeEstimateResponse.roisCount == 0) {
-                logs.add("[DEBUG] Empty response from worker ${worker.second}, treating as failure")
+                logs.add("Empty response from worker ${worker.second}")
                 updateWorkerMetrics(worker.first, false, 0)
                 // Clean up on empty response
                 synchronized(metricsLock) {
@@ -359,7 +359,7 @@ class Coordinator(
         request: AssignTaskRequest
     ): List<Pair<String, WorkerResult>> {
         val results = mutableListOf<Pair<String, WorkerResult>>()
-        logs.add("Redistributing failed tasks to available workers ...")
+        
         val tasksGroupedByWorker = failedTasks.groupBy { it.second }
         
         tasksGroupedByWorker.forEach { (failedWorkerAddress, tasksFromWorker) ->
@@ -428,16 +428,13 @@ class Coordinator(
                         )
                         )
                         updateWorkerMetrics(targetWorker.first, true, endTime - startTime)
-                        // Map failedWorkerAddress to friendly name for log and event
-                        val failedWorkerName = availableWorkers.find { it.first == failedWorkerAddress }?.second ?: failedWorkerAddress
-                        logs.add("Successfully redistributed portions [${portions.joinToString(", ")}] to ${targetWorker.second} (from failed worker $failedWorkerName)")
-                        // Post TaskCompleted with reassignedFrom as friendly name
+                        logs.add("Successfully redistributed portions [${portions.joinToString(", ")}] to ${targetWorker.second}")
+                        
                         WorkEventBus.post(
                             UiEventWorkStatus.TaskCompleted(
                                 humanName = targetWorker.second,
                                 portions = portions,
-                                computationTime = endTime - startTime,
-                                reassignedFrom = failedWorkerName
+                                computationTime = endTime - startTime
                             )
                         )
                     } else {
@@ -450,6 +447,7 @@ class Coordinator(
                 }
             }
         }
+
         return results
     }
 

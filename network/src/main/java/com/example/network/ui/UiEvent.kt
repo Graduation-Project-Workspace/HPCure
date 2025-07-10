@@ -29,8 +29,7 @@ sealed class UiEventWorkStatus {
         override val timestamp: Long = System.currentTimeMillis(),
         val humanName: String,
         val portions: List<Int>,
-        val computationTime: Long,
-        val reassignedFrom: String? = null // Optional: who this was reassigned from
+        val computationTime: Long
     ) : UiEventWorkStatus()
 
     data class Error(

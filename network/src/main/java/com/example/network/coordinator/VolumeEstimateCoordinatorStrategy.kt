@@ -187,10 +187,6 @@ class VolumeEstimateCoordinatorStrategy(
         val volumeRequest = request.volumeEstimateRequest
         logs.add("Coordinating volume estimation for ${volumeRequest.slicesCount} slices")
         logs.add("Alpha cut value: ${volumeRequest.alphaCutValue}")
-        
-        volumeRequest.slicesList.forEachIndexed { index, slice ->
-            logs.add("Slice $index dimensions: ${slice.width}x${slice.height}")
-        }
     }
     
     fun start(
@@ -254,6 +250,7 @@ class VolumeEstimateCoordinatorStrategy(
                                     message = "Failed to process slices ${range.first} to ${range.last}"
                                 )
                             )
+                            // redistribute these slices
                         }
                     } catch (e: Exception) {
                         synchronized(this@VolumeEstimateCoordinatorStrategy) { failedWorkers++ }
