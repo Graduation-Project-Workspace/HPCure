@@ -48,7 +48,7 @@ class VolumeEstimateComputationStrategy(
                     // Get ROI prediction using the MRISequence overload
                     val roiList = roiPredictor.predictRoi(mriSequence, true)
                     val roi = roiList.firstOrNull() ?: ROI(0, 0, slice.width, slice.height)
-                    roi.sliceIndex = sliceIdx
+                    roi.sliceIndex = slice.sliceIndex // Use the original global slice index
 
                     // Only process if ROI score > 0.3
                     if (roi.score > 0.3) {
@@ -63,12 +63,12 @@ class VolumeEstimateComputationStrategy(
                             .setY(seedPoint.second)
                             .build()
                         
-                        Log.d("GRPC_WORKER", "Slice $sliceIdx PASSED threshold: ROI(${roi.xMin},${roi.yMin},${roi.xMax},${roi.yMax}, score=${roi.score}), Seed(${seedPoint.first},${seedPoint.second})")
+                        Log.d("GRPC_WORKER", "Slice ${slice.sliceIndex} PASSED threshold: ROI(${roi.xMin},${roi.yMin},${roi.xMax},${roi.yMax}, score=${roi.score}), Seed(${seedPoint.first},${seedPoint.second})")
                         
-                        // Return slice index with results for proper aggregation
-                        Triple(sliceIdx, roi, protoSeed)
+                        // Return global slice index with results for proper aggregation
+                        Triple(slice.sliceIndex, roi, protoSeed)
                     } else {
-                        Log.d("GRPC_WORKER", "Slice $sliceIdx FAILED threshold: ROI score=${roi.score} <= 0.3, skipping")
+                        Log.d("GRPC_WORKER", "Slice ${slice.sliceIndex} FAILED threshold: ROI score=${roi.score} <= 0.3, skipping")
                         null
                     }
                 }
