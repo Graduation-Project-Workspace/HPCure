@@ -318,20 +318,36 @@ class Coordinator(
     ): AssignTaskResponse? {
         val stub = getOrCreateStub(worker.first)
         return try {
-            val response = stub.withDeadlineAfter(5, TimeUnit.SECONDS)
+            val response = stub.withDeadlineAfter(30, TimeUnit.SECONDS)
                 .assignTask(request)
             
             if (response.volumeEstimateResponse.roisCount == 0) {
                 logs.add("Empty response from worker ${worker.second}")
                 updateWorkerMetrics(worker.first, false, 0)
-                // Clean up on empty response
-                synchronized(metricsLock) {
-                    stubs.remove(worker.first)
-                    workers.remove(worker)
-                }
+                // Do NOT remove worker/stub here; let updateWorkerMetrics handle offline logic
                 null
             } else {
+                updateWorkerMetrics(worker.first, true, 0)
                 response
+            }
+        } catch (ex: io.grpc.StatusRuntimeException) {
+            if (ex.status.code == io.grpc.Status.Code.DEADLINE_EXCEEDED) {
+                logs.add("Worker ${worker.second} is slow (timeout), not marking offline.")
+                // Do NOT increment failure count for slow workers
+                return null
+            } else {
+                logs.add("Error assigning task to ${worker.first}: ${ex.message}")
+                scope.launch {
+                    WorkEventBus.post(
+                        UiEventWorkStatus.Error(
+                            humanName = worker.second,
+                            message = "Cannot compute work now: ${ex.message}"
+                        )
+                    )
+                }
+                updateWorkerMetrics(worker.first, false, 0)
+                // Do NOT remove worker/stub here; let updateWorkerMetrics handle offline logic
+                return null
             }
         } catch (ex: Exception) {
             logs.add("Error assigning task to ${worker.first}: ${ex.message}")
@@ -344,12 +360,8 @@ class Coordinator(
                 )
             }
             updateWorkerMetrics(worker.first, false, 0)
-            // Clean up on error
-            synchronized(metricsLock) {
-                stubs.remove(worker.first)
-                workers.remove(worker)
-            }
-            null
+            // Do NOT remove worker/stub here; let updateWorkerMetrics handle offline logic
+            return null
         }
     }
 
