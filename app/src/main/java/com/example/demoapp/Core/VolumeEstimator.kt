@@ -50,11 +50,14 @@ class VolumeEstimator(
                 metadata = mriSeq.metadata
             )
 
+            val filteredRoiList = roiList.filter { it.sliceIndex != -1 }
+            val filteredSeedPoints = seedPoints.filter { it.first != -1 }
+
             // Step 5: Use fuzzy system to compute final volume with filtered data
             val cancerVolume = fuzzySystem.estimateVolume(
                 mriSequence = filteredMriSeq,
-                roiList = roiList,
-                seedPoints = seedPoints,
+                roiList = filteredRoiList,
+                seedPoints = filteredSeedPoints,
                 alphaCut = alphaCutValue
             )
 

@@ -9,13 +9,9 @@ import com.example.domain.model.ROI
 import com.example.network.ui.UiEventWorkStatus
 import com.example.network.util.WorkEventBus
 import com.example.protos.*
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.*
 import java.io.ByteArrayOutputStream
 import kotlin.math.ceil
-import kotlinx.coroutines.launch
 
 class VolumeEstimateCoordinatorStrategy(
     private val networkService: INetworkService
@@ -100,7 +96,7 @@ class VolumeEstimateCoordinatorStrategy(
         
         // Pre-allocate lists with the correct size
         val aggregatedRois = MutableList(totalSize) { ROI(0, 0, 0, 0, 0f, -1) }
-        val aggregatedSeedPoints = MutableList(totalSize) { SeedPoint.newBuilder().setX(0).setY(0).build() }
+        val aggregatedSeedPoints = MutableList(totalSize) { SeedPoint.newBuilder().setX(-1).setY(-1).build() }
         val workerInfo = mutableMapOf<String, RowIndices>()
         val friendlyNames = mutableMapOf<String, String>()
 

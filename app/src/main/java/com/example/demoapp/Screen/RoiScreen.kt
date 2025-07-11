@@ -234,6 +234,7 @@ class RoiScreen : AppCompatActivity() {
                 ResultsDataHolder.tumorRoiList = emptyList()
                 for ((index, roi) in ResultsDataHolder.fullRoiList.withIndex()) {
                     if (roi.score > 0.3) {
+                        roi.sliceIndex = index
                         ResultsDataHolder.tumorMriSequence!!.images+= ResultsDataHolder.fullMriSequence!!.images[index]
                         ResultsDataHolder.tumorRoiList+= roi
                     }
