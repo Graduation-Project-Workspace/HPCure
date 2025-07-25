@@ -1,5 +1,8 @@
 # HPCure - Breast MRI Analysis for Android
 
+<img width="798" height="173" alt="Screenshot 2025-07-25 at 7 19 39 pm" src="https://github.com/user-attachments/assets/0957be48-129c-4bf3-82ac-63dbb9abfde9" />
+
+
 **HPCure** is an Android application for medical imaging analysis, focused on processing **breast MRI scans**. It leverages advanced machine learning models and image processing techniques to assist in tumor segmentation and volume estimation, supporting medical diagnosis and research.
 
 ---
